@@ -47,6 +47,7 @@
 #include "V3EmitCMake.h"
 #include "V3EmitMk.h"
 #include "V3EmitMkJson.h"
+#include "V3EmitMpiMk.h"
 #include "V3EmitV.h"
 #include "V3EmitXml.h"
 #include "V3ExecGraph.h"
@@ -73,6 +74,7 @@
 #include "V3LinkResolve.h"
 #include "V3Localize.h"
 #include "V3MergeCond.h"
+#include "V3Metro_MPI.h"
 #include "V3Name.h"
 #include "V3Order.h"
 #include "V3Os.h"
@@ -115,6 +117,8 @@
 
 VL_DEFINE_DEBUG_FUNCTIONS;
 
+std::string argString;
+
 V3Global v3Global;
 
 static void reportStatsIfEnabled() {
@@ -137,8 +141,31 @@ static void emitXmlOrJson() VL_MT_DISABLED {
     if (v3Global.opt.jsonOnly()) emitJson();
 }
 
+//metro_mpi: This is the Latest version
+static void metro_mpi() VL_MT_DISABLED {
+    static int metro_mpi_call_count = 0;
+    std::cout << "[DEBUG TRACE] Entering metro_mpi() function - Call #" << ++metro_mpi_call_count
+              << std::endl;
+    std::cout << "MetroMPI: Starting Partition Analysis...\n";
+
+    // This single object and method call now handles everything correctly and only once.
+    HierCellsGraphVisitor graph(v3Global.rootp());
+    graph.findAndPrintPartitionPorts(v3Global.rootp());
+
+    std::cout << "\nMetroMPI: Partition Analysis Finished.\n";
+}
+
+static void mmpi_xml_func() VL_MT_DISABLED {
+    cout << "[Verilator.cpp] Calling Metro_MPI's XML version" << endl;
+    V3EmitXml::emitxml();
+    cout << "[Verilator.cpp] Returned from Metro_MPI's XML version" << endl;
+}
+
 static void process() {
     {
+        static int process_call_count = 0;
+        std::cout << "[DEBUG TRACE] Entering process() function - Call #" << ++process_call_count
+                  << std::endl;
         VlOs::DeltaWallTime elabWallTime{true};
 
         // Sort modules by level so later algorithms don't need to care
@@ -206,10 +233,16 @@ static void process() {
             std::exit(0);
         }
 
+        V3Error::abortIfErrors();
+
+        if (v3Global.opt.mmpio1() && v3Global.opt.d2()) {
+            cout << "[Verilator.cpp] Calling Metro_MPI version 1 and Design 2" << endl;
+            metro_mpi();
+            cout << "[Verilator.cpp] Returned from Metro_MPI version 1 and Design 2" << endl;
+        }
+
         // Calculate and check widths, edit tree to TRUNC/EXTRACT any width mismatches
         V3Width::width(v3Global.rootp());
-
-        V3Error::abortIfErrors();
 
         // Commit to the widths we've chosen; Make widthMin==width
         V3WidthCommit::widthCommit(v3Global.rootp());
@@ -223,6 +256,8 @@ static void process() {
         // Coverage insertion
         //    Before we do dead code elimination and inlining, or we'll lose it.
         if (v3Global.opt.coverage()) V3Coverage::coverage(v3Global.rootp());
+
+        // Position 3-Didn't work in calc
 
         // Add randomize() class methods if they are used by the design
         if (v3Global.useRandomizeMethods()) V3Randomize::randomizeNetlist(v3Global.rootp());
@@ -241,12 +276,15 @@ static void process() {
         //
         V3Assert::assertAll(v3Global.rootp());
 
+        //Position 2- Didn't work in calc
+
         if (!(v3Global.opt.serializeOnly() && !v3Global.opt.flatten())) {
             // Add top level wrapper with instance pointing to old top
             // Move packages to under new top
             // Must do this after we know parameters and dtypes (as don't clone dtype decls)
             V3LinkLevel::wrapTop(v3Global.rootp());
         }
+        //Position 1- Didn't work in calc
 
         // Propagate constants into expressions
         if (v3Global.opt.fConstBeforeDfg()) V3Const::constifyAllLint(v3Global.rootp());
@@ -274,6 +312,20 @@ static void process() {
             // Expand inouts, stage 2
             // Also simplify pin connections to always be AssignWs in prep for V3Unknown
             V3Tristate::tristateAll(v3Global.rootp());
+        }
+
+        // if (v3Global.opt.mmpio1() && v3Global.opt.d1()) {
+        if (v3Global.opt.mmpio1()) {   // only --mmpi-o1 is needed
+            cout << "[Verilator.cpp] Calling Metro_MPI version 1 and Design 1" << endl;
+            metro_mpi();
+            cout << "[Verilator.cpp] Returned from Metro_MPI version 1 and Design 1" << endl;
+            UINFO(1, "Exiting: As this was just analysis\n");
+            exit(0);
+        }
+
+        if (v3Global.opt.mmpixml()) {
+            mmpi_xml_func();
+            // std::exit(0);
         }
 
         if (!v3Global.opt.serializeOnly()) {
@@ -829,8 +881,9 @@ int main(int argc, char** argv) {
     time_t randseed;
     time(&randseed);
     srand(static_cast<int>(randseed));
-
-    const string argString = V3Options::argString(argc - 1, argv + 1);
+    argString = V3Options::argString(argc - 1, argv + 1);
+    std::cout << "Printing the argString - \n"
+              << "Begin //==  " << argString << " ==// End" << endl;
 
     // Post-constructor initialization of netlists
     v3Global.boot();
@@ -848,6 +901,30 @@ int main(int argc, char** argv) {
     v3Global.rootp()->timeInit();
 
     V3Error::abortIfErrors();
+
+    // =================================================================
+    // ### Metro-MPI Logic Start ###
+    // =================================================================
+    // Check if --mmpi-mk flag was passed
+    if (v3Global.opt.mmpimk()) {
+        // we only wants to generate the Makefile.
+        // reading the input Verilog files to populate necessary info like top-module.
+        v3Global.readFiles();
+        v3Global.removeStd();
+        V3Error::abortIfErrors();
+
+        // calling emitter to generate the Makefile.
+        UINFO(1, "Option --mmpi-mk: Generating MPI Makefile and exiting.\n");
+        V3EmitMpiMk::emitMpiMk(argString);
+
+        // Flushing any remaining file system operations
+        V3Os::filesystemFlushBuildDir(v3Global.opt.makeDir());
+        std::exit(0);  // <-- IMPORTANT: Exit
+    }
+
+    // =================================================================
+    // ### Metro-MPI Logic Start ###
+    // =================================================================
 
     if (v3Global.opt.verilate()) {
         verilate(argString);

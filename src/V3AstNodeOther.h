@@ -216,6 +216,7 @@ public:
     string name() const override VL_MT_STABLE { return m_name; }
     bool sameNode(const AstNode* /*samep*/) const override { return true; }
 };
+
 class AstNodeModule VL_NOT_FINAL : public AstNode {
     // A module, package, program or interface declaration;
     // something that can live directly under the TOP,
@@ -304,6 +305,7 @@ public:
     VOptionBool unconnectedDrive() const { return m_unconnectedDrive; }
     void unconnectedDrive(const VOptionBool flag) { m_unconnectedDrive = flag; }
 };
+
 class AstNodeProcedure VL_NOT_FINAL : public AstNode {
     // IEEE procedure: initial, final, always
     // @astgen op2 := stmtsp : List[AstNode] // Note: op1 is used in some sub-types only
@@ -1844,6 +1846,7 @@ public:
     void name(std::string const& text) override VL_MT_STABLE { m_text = text; }
     string text() const VL_MT_SAFE { return m_text; }
 };
+
 class AstVar final : public AstNode {
     // A variable (in/out/wire/reg/param) inside a module
     //
@@ -2241,6 +2244,7 @@ public:
     }
     static AstVar* scVarRecurse(AstNode* nodep);
 };
+
 class AstVarScope final : public AstNode {
     // A particular scoped usage of a variable
     // That is, as a module is used under multiple cells, we get a different

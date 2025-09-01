@@ -260,8 +260,13 @@ private:
     bool m_ignc = false;            // main switch: --ignc
     bool m_jsonOnly = false;        // main switch: --json-only
     bool m_lintOnly = false;        // main switch: --lint-only
-    bool m_gmake = false;           // main switch: --make gmake
+    bool m_gmake = false;           // main switch: --make gmake 
     bool m_makeJson = false;        // main switch: --make json
+    bool m_mmpio1 = false;        // main switch: --mmpi-o1
+    bool m_mmpixml = false;        // main switch: --mmpi-xml
+    bool m_mmpimk = false;        // main switch: --mmpi-mk
+    bool m_d1 = false;        // main switch: --d1
+    bool m_d2 = false;        // main switch: --d2
     bool m_main = false;            // main switch: --main
     bool m_outFormatOk = false;     // main switch: --cc, --sc or --sp was specified
     bool m_pedantic = false;        // main switch: --Wpedantic
@@ -529,6 +534,11 @@ public:
     bool flatten() const { return m_flatten; }
     bool gmake() const { return m_gmake; }
     bool makeJson() const { return m_makeJson; }
+    bool mmpio1() const { return m_mmpio1; }
+    bool mmpixml() const { return m_mmpixml; }
+    bool mmpimk() const { return m_mmpimk; }
+    bool d1() const { return m_d1; }
+    bool d2() const { return m_d2; }
     bool threadsDpiPure() const { return m_threadsDpiPure; }
     bool threadsDpiUnpure() const { return m_threadsDpiUnpure; }
     bool threadsCoarsen() const { return m_threadsCoarsen; }

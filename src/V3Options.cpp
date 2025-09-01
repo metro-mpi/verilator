@@ -1449,6 +1449,15 @@ void V3Options::parseOptsList(FileLine* fl, const string& optdir, int argc,
             fl->v3error("Unknown --make system specified: '" << valp << "'");
         }
     });
+    DECL_OPTION("-mmpi-o1", Set, &m_mmpio1);
+    DECL_OPTION("-mmpi-xml", Set, &m_mmpixml);
+    DECL_OPTION("-mmpi-mk", Set, &m_mmpimk);
+    DECL_OPTION("-d1", Set, &m_d1);
+    DECL_OPTION("-d2", Set, &m_d2);
+    // DECL_OPTION("-mmpi-xml", CbVal, [this, fl](const char* valp) {
+    //     m_mmpixml = true;
+    //     m_xmlOnly = true;
+    // });
     DECL_OPTION("-max-num-width", Set, &m_maxNumWidth);
     DECL_OPTION("-mod-prefix", CbVal, [this, fl](const char* valp) {
         validateIdentifier(fl, valp, "--mod-prefix");

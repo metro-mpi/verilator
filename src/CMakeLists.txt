@@ -249,6 +249,7 @@ set(COMMON_SOURCES
     V3EmitCSyms.cpp
     V3EmitMk.cpp
     V3EmitMkJson.cpp
+    V3EmitMpiMk.cpp
     V3EmitV.cpp
     V3EmitXml.cpp
     V3Error.cpp
