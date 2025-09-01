@@ -88,8 +88,5 @@ module Test(/*AUTOARG*/
       assert(0);
       $asserton;
       $assertcontrol(3, 8);
-      begin : blk
-         disable blk;
-      end
    end
 endmodule

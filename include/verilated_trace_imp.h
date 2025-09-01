@@ -47,7 +47,7 @@ static double timescaleToDouble(const char* unitp) VL_PURE {
     // On error so we allow just "ns" to return 1e-9.
     if (value == 0.0 && endp == unitp) value = 1;
     unitp = endp;
-    for (; *unitp && std::isspace(*unitp); ++unitp) {}
+    for (; *unitp && std::isspace(*unitp); unitp++) {}
     switch (*unitp) {
     case 's': value *= 1e0; break;
     case 'm': value *= 1e-3; break;
@@ -905,7 +905,7 @@ VerilatedTraceOffloadBuffer<VL_BUF_T>::VerilatedTraceOffloadBuffer(VL_SUB_T& own
         using This = VerilatedTraceBuffer<VL_BUF_T>*;
         // Tack on the buffer address
         static_assert(2 * sizeof(uint32_t) >= sizeof(This),
-                      "This should be enough on all platforms");
+                      "This should be enough on all plafrorms");
         *m_offloadBufferWritep++ = VerilatedTraceOffloadCommand::TRACE_BUFFER;
         *reinterpret_cast<This*>(m_offloadBufferWritep) = static_cast<This>(this);
         m_offloadBufferWritep += 2;

@@ -12,7 +12,7 @@ import datetime
 
 test.scenarios('dist')
 
-RELEASE_OK_RE = r'(^test_regress/t/.*\.(cpp|h|map|mk|sv|v|vlt)|^test_regress/t_done/|^examples/)'
+RELEASE_OK_RE = r'(^test_regress/t/.*\.(cpp|h|mk|sv|v|vlt)|^test_regress/t_done/|^examples/)'
 
 EXEMPT_AUTHOR_RE = r'(^ci/|^nodist/fastcov.py|^nodist/fuzzer|^test_regress/t/.*\.(cpp|h|v|vlt)$)'
 
@@ -30,7 +30,6 @@ EXEMPT_FILES_LIST = """
     docs/CONTRIBUTING.rst
     docs/CONTRIBUTORS
     docs/README.rst
-    docs/security.rst
     docs/_static
     docs/gen
     docs/spelling.txt
@@ -45,7 +44,6 @@ EXEMPT_FILES_LIST = """
     test_regress/t/t_incr_void.v
     test_regress/t/tsub/t_flag_f_tsub.v
     test_regress/t/tsub/t_flag_f_tsub_inc.v
-    test_regress/t/uvm/dpi
     test_regress/t/uvm/uvm_pkg_all.svh
     test_regress/t/uvm/uvm_pkg_todo.svh
     verilator.pc.in

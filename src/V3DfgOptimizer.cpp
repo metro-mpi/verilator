@@ -153,7 +153,7 @@ class DataflowExtractVisitor final : public VNVisitor {
     void visit(AstAlways* nodep) override {
         VL_RESTORER(m_candidatesp);
         // Only extract from combinational logic under proper modules
-        const bool isComb = !nodep->sentreep()
+        const bool isComb = !nodep->sensesp()
                             && (nodep->keyword() == VAlwaysKwd::ALWAYS
                                 || nodep->keyword() == VAlwaysKwd::ALWAYS_COMB
                                 || nodep->keyword() == VAlwaysKwd::ALWAYS_LATCH);
@@ -164,9 +164,7 @@ class DataflowExtractVisitor final : public VNVisitor {
 
     void visit(AstAssignW* nodep) override {
         // Mark LHS variable as combinationally driven
-        if (const AstVarRef* const vrefp = VN_CAST(nodep->lhsp(), VarRef)) {
-            vrefp->varp()->user4(true);
-        }
+        if (AstVarRef* const vrefp = VN_CAST(nodep->lhsp(), VarRef)) vrefp->varp()->user4(true);
         //
         iterateChildrenConst(nodep);
     }
@@ -232,150 +230,82 @@ public:
 };
 
 void V3DfgOptimizer::extract(AstNetlist* netlistp) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     // Extract more optimization candidates
     DataflowExtractVisitor::apply(netlistp);
     V3Global::dumpCheckGlobalTree("dfg-extract", 0, dumpTreeEitherLevel() >= 3);
 }
 
-class DataflowOptimize final {
+void V3DfgOptimizer::optimize(AstNetlist* netlistp, const string& label) {
+    UINFO(2, __FUNCTION__ << ": " << endl);
+
     // NODE STATE
-    // AstVar::user1, AstVarScope::user1 -> int, used as a bit-field
-    // - bit0: Read via AstVarXRef (hierarchical reference)
-    // - bit1: Written via AstVarXRef (hierarchical reference)
-    // - bit2: Read by logic in same module/netlist not represented in DFG
-    // - bit3: Written by logic in same module/netlist not represented in DFG
-    // - bit31-4: Reference count, how many DfgVertexVar represent this variable
-    //
-    // AstNode::user2/user3/user4 can be used by various DFG algorithms
-    const VNUser1InUse m_user1InUse;
+    // AstVar::user1 -> Used by V3DfgPasses::astToDfg, V3DfgPasses::eliminateVars
+    // AstVar::user2 -> bool: Flag indicating referenced by AstVarXRef (set just below)
+    // AstVar::user3 -> bool: Flag indicating written by logic not representable as DFG
+    //                        (set by V3DfgPasses::astToDfg)
+    const VNUser2InUse user2InUse;
+    const VNUser3InUse user3InUse;
 
-    // STATE
-    V3DfgContext m_ctx;  // The context holding values that need to persist across multiple graphs
+    // Mark cross-referenced variables
+    netlistp->foreach([](const AstVarXRef* xrefp) { xrefp->varp()->user2(true); });
 
-    void optimize(DfgGraph& dfg) {
-        if (dumpDfgLevel() >= 8) dfg.dumpDotFilePrefixed(m_ctx.prefix() + "dfg-in");
+    V3DfgOptimizationContext ctx{label};
 
-        // Synthesize DfgLogic vertices
-        V3DfgPasses::synthesize(dfg, m_ctx);
-        if (dumpDfgLevel() >= 8) dfg.dumpDotFilePrefixed(m_ctx.prefix() + "synth");
+    // Run the optimization phase
+    for (AstNode* nodep = netlistp->modulesp(); nodep; nodep = nodep->nextp()) {
+        // Only optimize proper modules
+        AstModule* const modp = VN_CAST(nodep, Module);
+        if (!modp) continue;
+
+        UINFO(4, "Applying DFG optimization to module '" << modp->name() << "'" << endl);
+        ++ctx.m_modules;
+
+        // Build the DFG of this module
+        const std::unique_ptr<DfgGraph> dfg{V3DfgPasses::astToDfg(*modp, ctx)};
+        if (dumpDfgLevel() >= 8) dfg->dumpDotFilePrefixed(ctx.prefix() + "whole-input");
 
         // Extract the cyclic sub-graphs. We do this because a lot of the optimizations assume a
         // DAG, and large, mostly acyclic graphs could not be optimized due to the presence of
         // small cycles.
-        std::vector<std::unique_ptr<DfgGraph>> cyclicComponents
-            = dfg.extractCyclicComponents("cyclic");
+        const std::vector<std::unique_ptr<DfgGraph>>& cyclicComponents
+            = dfg->extractCyclicComponents("cyclic");
 
-        // Attempt to convert cyclic components into acyclic ones
-        std::vector<std::unique_ptr<DfgGraph>> madeAcyclicComponents;
-        if (v3Global.opt.fDfgBreakCycles()) {
-            for (auto it = cyclicComponents.begin(); it != cyclicComponents.end();) {
-                auto result = V3DfgPasses::breakCycles(**it, m_ctx);
-                if (!result.first) {
-                    // No improvement, moving on.
-                    ++it;
-                } else if (!result.second) {
-                    // Improved, but still cyclic. Replace the original cyclic component.
-                    *it = std::move(result.first);
-                    ++it;
-                } else {
-                    // Result became acyclic. Move to madeAcyclicComponents, delete original.
-                    madeAcyclicComponents.emplace_back(std::move(result.first));
-                    it = cyclicComponents.erase(it);
-                }
-            }
-        }
-        // Merge those that were made acyclic back to the graph, this enables optimizing more
-        dfg.mergeGraphs(std::move(madeAcyclicComponents));
-
-        // Split the acyclic DFG into [weakly] connected components
-        std::vector<std::unique_ptr<DfgGraph>> acyclicComponents
-            = dfg.splitIntoComponents("acyclic");
+        // Split the remaining acyclic DFG into [weakly] connected components
+        const std::vector<std::unique_ptr<DfgGraph>>& acyclicComponents
+            = dfg->splitIntoComponents("acyclic");
 
         // Quick sanity check
-        UASSERT(dfg.size() == 0, "DfgGraph should have become empty");
+        UASSERT_OBJ(dfg->size() == 0, nodep, "DfgGraph should have become empty");
 
         // For each acyclic component
-        for (const std::unique_ptr<DfgGraph>& component : acyclicComponents) {
+        for (auto& component : acyclicComponents) {
+            if (dumpDfgLevel() >= 7) component->dumpDotFilePrefixed(ctx.prefix() + "source");
             // Optimize the component
-            V3DfgPasses::optimize(*component, m_ctx);
+            V3DfgPasses::optimize(*component, ctx);
+            // Add back under the main DFG (we will convert everything back in one go)
+            dfg->addGraph(*component);
         }
-        // Merge back under the main DFG (we will convert everything back in one go)
-        dfg.mergeGraphs(std::move(acyclicComponents));
 
         // Eliminate redundant variables. Run this on the whole acyclic DFG. It needs to traverse
-        // the module/netlist to perform variable substitutions. Doing this by component would do
-        // redundant traversals and can be extremely slow when we have many components.
-        V3DfgPasses::eliminateVars(dfg, m_ctx.m_eliminateVarsContext);
+        // the module to perform variable substitutions. Doing this by component would do
+        // redundant traversals and can be extremely slow in large modules with many components.
+        V3DfgPasses::eliminateVars(*dfg, ctx.m_eliminateVarsContext);
 
         // For each cyclic component
-        for (const std::unique_ptr<DfgGraph>& component : cyclicComponents) {
+        for (auto& component : cyclicComponents) {
+            if (dumpDfgLevel() >= 7) component->dumpDotFilePrefixed(ctx.prefix() + "source");
             // Converting back to Ast assumes the 'regularize' pass was run, so we must run it
-            V3DfgPasses::regularize(*component, m_ctx.m_regularizeContext);
-        }
-        // Merge back under the main DFG (we will convert everything back in one go)
-        dfg.mergeGraphs(std::move(cyclicComponents));
-
-        if (dumpDfgLevel() >= 8) dfg.dumpDotFilePrefixed(m_ctx.prefix() + "dfg-out");
-    }
-
-    DataflowOptimize(AstNetlist* netlistp, const string& label)
-        : m_ctx{label} {
-
-        // Mark interfaces that might be referenced by a virtual interface
-        if (v3Global.hasVirtIfaces()) {
-            netlistp->typeTablep()->foreach([](AstIfaceRefDType* nodep) {
-                if (!nodep->isVirtual()) return;
-                nodep->ifaceViaCellp()->setHasVirtualRef();
-            });
+            V3DfgPasses::regularize(*component, ctx.m_regularizeContext);
+            // Add back under the main DFG (we will convert everything back in one go)
+            dfg->addGraph(*component);
         }
 
-        if (!netlistp->topScopep()) {
-            // Pre V3Scope application. Run on each module separately.
-
-            // Mark cross-referenced variables
-            netlistp->foreach([](const AstVarXRef* xrefp) {
-                AstVar* const tgtp = xrefp->varp();
-                if (xrefp->access().isReadOrRW()) DfgVertexVar::setHasRdXRefs(tgtp);
-                if (xrefp->access().isWriteOrRW()) DfgVertexVar::setHasWrXRefs(tgtp);
-            });
-
-            // Run the optimization
-            for (AstNode* nodep = netlistp->modulesp(); nodep; nodep = nodep->nextp()) {
-                // Only optimize proper modules
-                AstModule* const modp = VN_CAST(nodep, Module);
-                if (!modp) continue;
-
-                // Pre V3Scope application. Run on module.
-                UINFO(4, "Applying DFG optimization to module '" << modp->name() << "'");
-                ++m_ctx.m_modules;
-                // Build the DFG of this module or netlist
-                const std::unique_ptr<DfgGraph> dfgp = V3DfgPasses::astToDfg(*modp, m_ctx);
-                // Actually process the graph
-                optimize(*dfgp);
-                // Convert back to Ast
-                V3DfgPasses::dfgToAst(*dfgp, m_ctx);
-            }
-        } else {
-            // Post V3Scope application. Run on whole netlist.
-            UINFO(4, "Applying DFG optimization to entire netlist");
-            // Build the DFG of the entire netlist
-            const std::unique_ptr<DfgGraph> dfgp = V3DfgPasses::astToDfg(*netlistp, m_ctx);
-            // Actually process the graph
-            optimize(*dfgp);
-            // Convert back to Ast
-            V3DfgPasses::dfgToAst(*dfgp, m_ctx);
-        }
+        // Convert back to Ast
+        if (dumpDfgLevel() >= 8) dfg->dumpDotFilePrefixed(ctx.prefix() + "whole-optimized");
+        AstModule* const resultModp = V3DfgPasses::dfgToAst(*dfg, ctx);
+        UASSERT_OBJ(resultModp == modp, modp, "Should be the same module");
     }
 
-public:
-    static void apply(AstNetlist* netlistp, const string& label) {
-        DataflowOptimize{netlistp, label};
-    }
-};
-
-void V3DfgOptimizer::optimize(AstNetlist* netlistp, const string& label) {
-    UINFO(2, __FUNCTION__ << ":");
-    DataflowOptimize::apply(netlistp, label);
     V3Global::dumpCheckGlobalTree("dfg-optimize", 0, dumpTreeEitherLevel() >= 3);
 }

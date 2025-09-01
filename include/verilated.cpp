@@ -72,7 +72,7 @@
 # include <execinfo.h>
 # define _VL_HAVE_STACKTRACE
 #endif
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__linux) || (defined(__APPLE__) && defined(__MACH__))
 # include <sys/time.h>
 # include <sys/resource.h>
 # define _VL_HAVE_GETRLIMIT
@@ -168,12 +168,7 @@ void vl_fatal(const char* filename, int linenum, const char* hier, const char* m
 
     // Callbacks prior to termination
     Verilated::runExitCallbacks();
-
-    if (Verilated::debug()) {
-        std::abort();
-    } else {
-        std::exit(1);
-    }
+    std::abort();
 }
 #endif
 
@@ -411,58 +406,6 @@ IData VL_URANDOM_SEEDED_II(IData seed) VL_MT_SAFE {
     Verilated::threadContextp()->randSeed(static_cast<int>(seed));
     return VL_RANDOM_I();
 }
-
-IData VL_SCOPED_RAND_RESET_I(int obits, uint64_t scopeHash, uint64_t salt) VL_MT_UNSAFE {
-    if (Verilated::threadContextp()->randReset() == 0) return 0;
-    IData data = ~0;
-    if (Verilated::threadContextp()->randReset() != 1) {  // if 2, randomize
-        VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-        data = rng.rand64();
-    }
-    data &= VL_MASK_I(obits);
-    return data;
-}
-
-QData VL_SCOPED_RAND_RESET_Q(int obits, uint64_t scopeHash, uint64_t salt) VL_MT_UNSAFE {
-    if (Verilated::threadContextp()->randReset() == 0) return 0;
-    QData data = ~0ULL;
-    if (Verilated::threadContextp()->randReset() != 1) {  // if 2, randomize
-        VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-        data = rng.rand64();
-    }
-    data &= VL_MASK_Q(obits);
-    return data;
-}
-
-WDataOutP VL_SCOPED_RAND_RESET_W(int obits, WDataOutP outwp, uint64_t scopeHash,
-                                 uint64_t salt) VL_MT_UNSAFE {
-    if (Verilated::threadContextp()->randReset() != 2) { return VL_RAND_RESET_W(obits, outwp); }
-    VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-    for (int i = 0; i < VL_WORDS_I(obits) - 1; ++i) outwp[i] = rng.rand64();
-    outwp[VL_WORDS_I(obits) - 1] = rng.rand64() & VL_MASK_E(obits);
-    return outwp;
-}
-
-IData VL_SCOPED_RAND_RESET_ASSIGN_I(int obits, uint64_t scopeHash, uint64_t salt) VL_MT_UNSAFE {
-    VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-    const IData data = rng.rand64() & VL_MASK_I(obits);
-    return data;
-}
-
-QData VL_SCOPED_RAND_RESET_ASSIGN_Q(int obits, uint64_t scopeHash, uint64_t salt) VL_MT_UNSAFE {
-    VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-    const QData data = rng.rand64() & VL_MASK_Q(obits);
-    return data;
-}
-
-WDataOutP VL_SCOPED_RAND_RESET_ASSIGN_W(int obits, WDataOutP outwp, uint64_t scopeHash,
-                                        uint64_t salt) VL_MT_UNSAFE {
-    VlRNG rng{Verilated::threadContextp()->randSeed() ^ scopeHash ^ salt};
-    for (int i = 0; i < VL_WORDS_I(obits) - 1; ++i) outwp[i] = rng.rand64();
-    outwp[VL_WORDS_I(obits) - 1] = rng.rand64() & VL_MASK_E(obits);
-    return outwp;
-}
-
 IData VL_RAND_RESET_I(int obits) VL_MT_SAFE {
     if (Verilated::threadContextp()->randReset() == 0) return 0;
     IData data = ~0;
@@ -472,6 +415,7 @@ IData VL_RAND_RESET_I(int obits) VL_MT_SAFE {
     data &= VL_MASK_I(obits);
     return data;
 }
+IData VL_RAND_RESET_ASSIGN_I(int obits) VL_MT_SAFE { return VL_RANDOM_I() & VL_MASK_I(obits); }
 
 QData VL_RAND_RESET_Q(int obits) VL_MT_SAFE {
     if (Verilated::threadContextp()->randReset() == 0) return 0;
@@ -483,9 +427,16 @@ QData VL_RAND_RESET_Q(int obits) VL_MT_SAFE {
     return data;
 }
 
+QData VL_RAND_RESET_ASSIGN_Q(int obits) VL_MT_SAFE { return VL_RANDOM_Q() & VL_MASK_Q(obits); }
+
 WDataOutP VL_RAND_RESET_W(int obits, WDataOutP outwp) VL_MT_SAFE {
     for (int i = 0; i < VL_WORDS_I(obits) - 1; ++i) outwp[i] = VL_RAND_RESET_I(32);
     outwp[VL_WORDS_I(obits) - 1] = VL_RAND_RESET_I(32) & VL_MASK_E(obits);
+    return outwp;
+}
+WDataOutP VL_RAND_RESET_ASSIGN_W(int obits, WDataOutP outwp) VL_MT_SAFE {
+    for (int i = 0; i < VL_WORDS_I(obits) - 1; ++i) outwp[i] = VL_RAND_RESET_ASSIGN_I(32);
+    outwp[VL_WORDS_I(obits) - 1] = VL_RAND_RESET_ASSIGN_I(32) & VL_MASK_E(obits);
     return outwp;
 }
 WDataOutP VL_ZERO_RESET_W(int obits, WDataOutP outwp) VL_MT_SAFE {
@@ -626,12 +577,14 @@ WDataOutP VL_POW_WWW(int obits, int, int rbits, WDataOutP owp, const WDataInP lw
     const int owords = VL_WORDS_I(obits);
     VL_DEBUG_IFDEF(assert(owords <= VL_MULS_MAX_WORDS););
     owp[0] = 1;
-    for (int i = 1; i < VL_WORDS_I(obits); ++i) owp[i] = 0;
+    for (int i = 1; i < VL_WORDS_I(obits); i++) owp[i] = 0;
+    // cppcheck-has-bug-suppress variableScope
     VlWide<VL_MULS_MAX_WORDS> powstore;  // Fixed size, as MSVC++ doesn't allow [words] here
     VlWide<VL_MULS_MAX_WORDS> lastpowstore;  // Fixed size, as MSVC++ doesn't allow [words] here
     VlWide<VL_MULS_MAX_WORDS> lastoutstore;  // Fixed size, as MSVC++ doesn't allow [words] here
+    // cppcheck-has-bug-suppress variableScope
     VL_ASSIGN_W(obits, powstore, lwp);
-    for (int bit = 0; bit < rbits; ++bit) {
+    for (int bit = 0; bit < rbits; bit++) {
         if (bit > 0) {  // power = power*power
             VL_ASSIGN_W(obits, lastpowstore, powstore);
             VL_MUL_W(owords, powstore, lastpowstore, lastpowstore);
@@ -1382,6 +1335,7 @@ IData _vl_vsscanf(FILE* fp,  // If a fscanf
                     _vl_vsss_skipspace(fp, floc, fromp, fstr);
                     _vl_vsss_read_str(fp, floc, fromp, fstr, t_tmp, "+-.0123456789eE");
                     if (!t_tmp[0]) goto done;
+                    // cppcheck-has-bug-suppress unusedStructMember, unreadVariable
                     union {
                         double r;
                         int64_t ld;
@@ -1746,48 +1700,6 @@ IData VL_SSCANF_INNX(int, const std::string& ld, const std::string& format, int 
     return got;
 }
 
-// MurmurHash64A
-uint64_t VL_MURMUR64_HASH(const char* key) VL_PURE {
-    const size_t len = strlen(key);
-    const uint64_t seed = 0;
-    const uint64_t m = 0xc6a4a7935bd1e995ULL;
-    const int r = 47;
-
-    uint64_t h = seed ^ (len * m);
-
-    const uint64_t* data = reinterpret_cast<const uint64_t*>(key);
-    const uint64_t* end = data + (len / 8);
-
-    while (data != end) {
-        uint64_t k = *data++;
-
-        k *= m;
-        k ^= k >> r;
-        k *= m;
-
-        h ^= k;
-        h *= m;
-    }
-
-    const unsigned char* data2 = reinterpret_cast<const unsigned char*>(data);
-
-    switch (len & 7) {
-    case 7: h ^= uint64_t(data2[6]) << 48; /* fallthrough */
-    case 6: h ^= uint64_t(data2[5]) << 40; /* fallthrough */
-    case 5: h ^= uint64_t(data2[4]) << 32; /* fallthrough */
-    case 4: h ^= uint64_t(data2[3]) << 24; /* fallthrough */
-    case 3: h ^= uint64_t(data2[2]) << 16; /* fallthrough */
-    case 2: h ^= uint64_t(data2[1]) << 8; /* fallthrough */
-    case 1: h ^= uint64_t(data2[0]); h *= m; /* fallthrough */
-    };
-
-    h ^= h >> r;
-    h *= m;
-    h ^= h >> r;
-
-    return h;
-}
-
 IData VL_FREAD_I(int width, int array_lsb, int array_size, void* memp, IData fpi, IData start,
                  IData count) VL_MT_SAFE {
     // While threadsafe, each thread can only access different file handles
@@ -1858,7 +1770,7 @@ std::string VL_STACKTRACE_N() VL_MT_SAFE {
     if (!strings) return "Unable to backtrace\n";
 
     std::string result = "Backtrace:\n";
-    for (int j = 0; j < nptrs; ++j) result += std::string{strings[j]} + "\n"s;
+    for (int j = 0; j < nptrs; j++) result += std::string{strings[j]} + "\n"s;
     free(strings);
     return result;
 }
@@ -2130,7 +2042,7 @@ static const char* formatBinary(int nBits, uint32_t bits) {
     assert((nBits >= 1) && (nBits <= 32));
 
     static thread_local char t_buf[64];
-    for (int i = 0; i < nBits; ++i) {
+    for (int i = 0; i < nBits; i++) {
         const bool isOne = bits & (1 << (nBits - 1 - i));
         t_buf[i] = (isOne ? '1' : '0');
     }
@@ -2148,6 +2060,7 @@ VlReadMem::VlReadMem(bool hex, int bits, const std::string& filename, QData star
     if (VL_UNLIKELY(!m_fp)) {
         // We don't report the Verilog source filename as it slow to have to pass it down
         VL_WARN_MT(filename.c_str(), 0, "", "$readmem file not found");
+        // cppcheck-has-bug-suppress resourceLeak  // m_fp is nullptr
         return;
     }
 }
@@ -2287,6 +2200,7 @@ VlWriteMem::VlWriteMem(bool hex, int bits, const std::string& filename, QData st
     m_fp = std::fopen(filename.c_str(), "w");
     if (VL_UNLIKELY(!m_fp)) {
         VL_FATAL_MT(filename.c_str(), 0, "", "$writemem file not found");
+        // cppcheck-has-bug-suppress resourceLeak  // m_fp is nullptr
         return;
     }
 }
@@ -2470,6 +2384,7 @@ static const char* vl_time_str(int scale) VL_PURE {
 double vl_time_multiplier(int scale) VL_PURE {
     // Return timescale multiplier -18 to +18
     // For speed, this does not check for illegal values
+    // cppcheck-has-bug-suppress arrayIndexOutOfBoundsCond
     if (scale < 0) {
         static const double neg10[] = {1.0,
                                        0.1,
@@ -2490,6 +2405,7 @@ double vl_time_multiplier(int scale) VL_PURE {
                                        0.0000000000000001,
                                        0.00000000000000001,
                                        0.000000000000000001};
+        // cppcheck-has-bug-suppress arrayIndexOutOfBoundsCond
         return neg10[-scale];
     } else {
         static const double pow10[] = {1.0,
@@ -2511,6 +2427,7 @@ double vl_time_multiplier(int scale) VL_PURE {
                                        10000000000000000.0,
                                        100000000000000000.0,
                                        1000000000000000000.0};
+        // cppcheck-has-bug-suppress arrayIndexOutOfBoundsCond
         return pow10[scale];
     }
 }
@@ -2560,13 +2477,12 @@ void VL_PRINTTIMESCALE(const char* namep, const char* timeunitp,
     VL_PRINTF_MT("Time scale of %s is %s / %s\n", namep, timeunitp,
                  contextp->timeprecisionString());
 }
-void VL_TIMEFORMAT_IINI(bool hasUnits, int units, bool hasPrecision, int precision, bool hasSuffix,
-                        const std::string& suffix, bool hasWidth, int width,
+void VL_TIMEFORMAT_IINI(int units, int precision, const std::string& suffix, int width,
                         VerilatedContext* contextp) VL_MT_SAFE {
-    if (hasUnits) contextp->impp()->timeFormatUnits(units);
-    if (hasPrecision) contextp->impp()->timeFormatPrecision(precision);
-    if (hasSuffix) contextp->impp()->timeFormatSuffix(suffix);
-    if (hasWidth) contextp->impp()->timeFormatWidth(width);
+    contextp->impp()->timeFormatUnits(units);
+    contextp->impp()->timeFormatPrecision(precision);
+    contextp->impp()->timeFormatSuffix(suffix);
+    contextp->impp()->timeFormatWidth(width);
 }
 
 //======================================================================
@@ -2806,7 +2722,7 @@ void VerilatedContext::internalsDump() const VL_MT_SAFE {
     VerilatedImp::userDump();
 }
 
-void VerilatedContext::addModel(const VerilatedModel* modelp) {
+void VerilatedContext::addModel(VerilatedModel* modelp) {
     if (!quiet()) {
         // CPU time isn't read as starting point until model creation, so that quiet() is set
         // Thus if quiet(), avoids slow OS read affecting some usages that make many models
@@ -2844,7 +2760,7 @@ VerilatedVirtualBase* VerilatedContext::threadPoolp() {
 void VerilatedContext::prepareClone() { delete m_threadPool.release(); }
 
 VerilatedVirtualBase* VerilatedContext::threadPoolpOnClone() {
-    if (VL_UNLIKELY(m_threadPool)) (void)m_threadPool.release();
+    if (VL_UNLIKELY(m_threadPool)) m_threadPool.release();
     m_threadPool = std::unique_ptr<VlThreadPool>(new VlThreadPool{this, m_threads - 1});
     return m_threadPool.get();
 }
@@ -3058,9 +2974,7 @@ void VerilatedContext::statsPrintSummary() VL_MT_UNSAFE {
         = vl_timescaled_double((cputime != 0.0) ? (simtimeInUnits / cputime) : 0, "%0.3f %s");
     VL_PRINTF("- Verilator: %s at %s; walltime %0.3f s; speed %s/s\n", endwhy.c_str(),
               simtime.c_str(), walltime, simtimePerf.c_str());
-    uint64_t memPeak, memCurrent;
-    VlOs::memUsageBytes(memPeak /*ref*/, memCurrent /*ref*/);
-    const double modelMB = memPeak / 1024.0 / 1024.0;
+    const double modelMB = VlOs::memUsageBytes() / 1024.0 / 1024.0;
     VL_PRINTF("- Verilator: cpu %0.3f s on %u threads; alloced %0.0f MB\n", cputime,
               threadsInModels(), modelMB);
 }
@@ -3125,7 +3039,7 @@ void VerilatedContext::trace(VerilatedTraceBaseC* tfp, int levels, int options) 
         VL_FATAL_MT("", 0, "",
                     "Testbench C call to 'VerilatedContext::trace()' requires model(s) Verilated"
                     " with --trace-fst or --trace-vcd option");
-    for (const auto& cbr : m_ns.m_traceBaseModelCbs) cbr(tfp, levels, options);
+    for (auto& cbr : m_ns.m_traceBaseModelCbs) cbr(tfp, levels, options);
 }
 void VerilatedContext::traceBaseModelCbAdd(traceBaseModelCb_t cb) VL_MT_SAFE {
     // Model creation registering a callback for when Verilated::trace() called
@@ -3140,6 +3054,7 @@ VerilatedSyms::VerilatedSyms(VerilatedContext* contextp)
     : _vm_contextp__(contextp ? contextp : Verilated::threadContextp()) {
     VerilatedContext::checkMagic(_vm_contextp__);
     Verilated::threadContextp(_vm_contextp__);
+    // cppcheck-has-bug-suppress noCopyConstructor
     __Vm_evalMsgQp = new VerilatedEvalMsgQueue;
 }
 
@@ -3379,7 +3294,7 @@ VerilatedModule::VerilatedModule(const char* namep)
 
 VerilatedModule::~VerilatedModule() {
     // Memory cleanup - not called during normal operation
-    // cppcheck-suppress cstyleCast  // NOLINTNEXTLINE(google-readability-casting)
+    // NOLINTNEXTLINE(google-readability-casting)
     if (m_namep) VL_DO_CLEAR(free((void*)(m_namep)), m_namep = nullptr);
 }
 
@@ -3541,16 +3456,16 @@ void VerilatedScope::scopeDump() const {
                          VerilatedImp::exportName(i));
         }
     }
-    if (const VerilatedVarNameMap* const ivarsp = this->varsp()) {
-        for (const auto& i : *ivarsp) VL_PRINTF_MT("       VAR %p: %s\n", &(i.second), i.first);
+    if (const VerilatedVarNameMap* const varsp = this->varsp()) {
+        for (const auto& i : *varsp) VL_PRINTF_MT("       VAR %p: %s\n", &(i.second), i.first);
     }
 }
 
-void VerilatedHierarchy::add(const VerilatedScope* fromp, const VerilatedScope* top) {
+void VerilatedHierarchy::add(VerilatedScope* fromp, VerilatedScope* top) {
     VerilatedImp::hierarchyAdd(fromp, top);
 }
 
-void VerilatedHierarchy::remove(const VerilatedScope* fromp, const VerilatedScope* top) {
+void VerilatedHierarchy::remove(VerilatedScope* fromp, VerilatedScope* top) {
     VerilatedImp::hierarchyRemove(fromp, top);
 }
 

@@ -42,8 +42,8 @@ class EmitCConstPool final : public EmitCConstInit {
     // METHODS
 
     OutCFilePair newOutCFile() const {
-        const string fileName = v3Global.opt.makeDir() + "/" + EmitCUtil::topClassName()
-                                + "__ConstPool_" + cvtToStr(m_outFileCount) + ".cpp";
+        const string fileName = v3Global.opt.makeDir() + "/" + topClassName() + "__ConstPool_"
+                                + cvtToStr(m_outFileCount) + ".cpp";
         AstCFile* const cfilep = newCFile(fileName, /* slow: */ true, /* source: */ true);
         V3OutCFile* const ofp = new V3OutCFile{fileName};
         ofp->putsHeader();
@@ -84,8 +84,7 @@ class EmitCConstPool final : public EmitCConstInit {
 
         for (const AstVar* varp : varps) {
             maybeSplitCFile();
-            const string nameProtect
-                = EmitCUtil::topClassName() + "__ConstPool__" + varp->nameProtect();
+            const string nameProtect = topClassName() + "__ConstPool__" + varp->nameProtect();
             puts("\n");
             putns(varp, "extern const ");
             putns(varp, varp->dtypep()->cType(nameProtect, false, false));
@@ -111,7 +110,7 @@ class EmitCConstPool final : public EmitCConstInit {
     }
 
 public:
-    explicit EmitCConstPool(const AstConstPool* poolp) {
+    explicit EmitCConstPool(AstConstPool* poolp) {
         emitVars(poolp);
         V3Stats::addStatSum("ConstPool, Tables emitted", m_tablesEmitted);
         V3Stats::addStatSum("ConstPool, Constants emitted", m_constsEmitted);
@@ -122,6 +121,6 @@ public:
 // EmitC static functions
 
 void V3EmitC::emitcConstPool() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     EmitCConstPool(v3Global.rootp()->constPoolp());
 }

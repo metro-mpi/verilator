@@ -6,5 +6,3 @@
 
 `verilator_config
 hier_workers -module "Test" -workers 2
-hier_block -module "Check"
-hier_workers -module "Check" -workers 2

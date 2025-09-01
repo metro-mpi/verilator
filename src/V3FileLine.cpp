@@ -24,9 +24,8 @@
 #include "V3String.h"
 #ifndef V3ERROR_NO_GLOBAL_
 # include "V3Global.h"
-# include "V3Control.h"
+# include "V3Config.h"
 # include "V3File.h"
-# include "V3Stats.h"
 #endif
 #include "V3Waiver.h"
 // clang-format on
@@ -225,7 +224,7 @@ string FileLine::xmlDetailedLocation() const {
 
 string FileLine::lineDirectiveStrg(int enterExit) const {
     return "`line "s + cvtToStr(lastLineno()) + " \""
-           + V3OutFormatter::quoteNameControls(filename()) + "\" " + cvtToStr(enterExit) + '\n';
+           + V3OutFormatter::quoteNameControls(filename()) + "\" " + cvtToStr(enterExit) + "\n";
 }
 
 void FileLine::lineDirective(const char* textp, int& enterExitRef) {
@@ -293,8 +292,6 @@ void FileLine::lineDirectiveParse(const char* textp, string& filenameRef, int& l
 }
 
 void FileLine::forwardToken(const char* textp, size_t size, bool trackLines) {
-    static int s_tokenNum = 1;
-    m_tokenNum = s_tokenNum++;
     for (const char* sp = textp; size && *sp; ++sp, --size) {
         if (*sp == '\n') {
             if (trackLines) linenoInc();
@@ -308,7 +305,7 @@ void FileLine::forwardToken(const char* textp, size_t size, bool trackLines) {
 
 void FileLine::applyIgnores() {
 #ifndef V3ERROR_NO_GLOBAL_
-    V3Control::applyIgnores(this);  // Toggle warnings based on global config file
+    V3Config::applyIgnores(this);  // Toggle warnings based on global config file
 #endif
 }
 
@@ -425,15 +422,15 @@ void FileLine::v3errorEnd(std::ostringstream& sstr, const string& extra)
     // duplicate messages. Currently used for reporting instance name.
     std::ostringstream nsstr;  // sstr with fileline prefix and context
     std::ostringstream wsstr;  // sstr for waiver (no fileline) with context
-    if (lastLineno()) nsstr << V3Error::warnContextBegin() << this << V3Error::warnContextEnd();
+    if (lastLineno()) nsstr << this;
     nsstr << sstr.str();
     wsstr << sstr.str();
-    nsstr << '\n';
-    wsstr << '\n';
+    nsstr << "\n";
+    wsstr << "\n";
     std::ostringstream extrass;  // extra spaced out for prefix
     if (!extra.empty()) {
-        extrass << V3Error::warnContextBegin() << std::setw(ascii().length()) << " " << ": "
-                << V3Error::warnContextEnd() << extra;
+        extrass << std::setw(ascii().length()) << " "
+                << ": " << extra;
     }
     if (warnIsOff(V3Error::s().errorCode())) {
         V3Error::s().suppressThisWarning();
@@ -443,33 +440,34 @@ void FileLine::v3errorEnd(std::ostringstream& sstr, const string& extra)
             wsstr << add;
             nsstr << add;
         }
-        const string waiverText = V3Error::stripMetaText(wsstr.str(), false);
-        m_waive = V3Control::waive(this, V3Error::s().errorCode(), waiverText);
+        m_waive = V3Config::waive(this, V3Error::s().errorCode(), wsstr.str());
         if (m_waive) {
             V3Error::s().suppressThisWarning();
         } else {
-            V3Waiver::addEntry(V3Error::s().errorCode(), filename(), waiverText);
+            V3Waiver::addEntry(V3Error::s().errorCode(), filename(), wsstr.str());
         }
     }
-    V3Error::v3errorEnd(nsstr, extrass.str(), this);
+    V3Error::v3errorEnd(nsstr, extrass.str());
 }
 
 string FileLine::warnMore() const VL_REQUIRES(V3Error::s().m_mutex) {
     if (lastLineno()) {
-        return V3Error::warnContextBegin() + V3Error::warnMore() + string(ascii().size(), ' ')
-               + ": " + V3Error::warnContextEnd();
+        return V3Error::s().warnMore() + string(ascii().size(), ' ') + ": ";
     } else {
-        return V3Error::warnMore();
+        return V3Error::s().warnMore();
     }
 }
 string FileLine::warnOther() const VL_REQUIRES(V3Error::s().m_mutex) {
     if (lastLineno()) {
-        return V3Error::s().warnRelated(this) + V3Error::warnContextBegin() + V3Error::warnMore()
-               + ascii() + ": " + V3Error::warnContextEnd();
+        return V3Error::s().warnMore() + ascii() + ": ";
     } else {
-        return V3Error::warnMore();
+        return V3Error::s().warnMore();
     }
 };
+string FileLine::warnOtherStandalone() const VL_EXCLUDES(V3Error::s().m_mutex) VL_MT_UNSAFE {
+    const V3RecursiveLockGuard guard{V3Error::s().m_mutex};
+    return warnOther();
+}
 
 string FileLine::source() const VL_MT_SAFE {
     if (VL_UNCOVERABLE(!m_contentp)) {  // LCOV_EXCL_START
@@ -499,15 +497,15 @@ string FileLine::prettySource() const VL_MT_SAFE {
 
 string FileLine::warnContext() const {
     if (!v3Global.opt.context()) return "";
+    string out;
     if (firstLineno() == lastLineno() && firstColumn()) {
         const string sourceLine = prettySource();
-        string out;
         // Don't show super-long lines as can fill screen and unlikely to help user
         if (!sourceLine.empty() && sourceLine.length() < SHOW_SOURCE_MAX_LENGTH
             && sourceLine.length() >= static_cast<size_t>(lastColumn() - 1)) {
             string linestr = cvtToStr(firstLineno());
             while (linestr.size() < 5) linestr = ' ' + linestr;
-            out += linestr + " | " + sourceLine + '\n';
+            out += linestr + " | " + sourceLine + "\n";
             out += std::string(linestr.size(), ' ') + " | ";
             out += string((firstColumn() - 1), ' ') + '^';
             // Can't use UASSERT_OBJ used in warnings already inside the error end handler
@@ -515,11 +513,10 @@ string FileLine::warnContext() const {
                 // Note lastColumn() can be <= firstColumn() in some weird preproc expansions
                 out += string((lastColumn() - firstColumn() - 1), '~');
             }
-            out += '\n';
+            out += "\n";
         }
-        return V3Error::warnContextBegin() + out + V3Error::warnContextEnd();
     }
-    return "";
+    return out;
 }
 
 string FileLine::warnContextParent() const VL_REQUIRES(V3Error::s().m_mutex) {
@@ -531,7 +528,6 @@ string FileLine::warnContextParent() const VL_REQUIRES(V3Error::s().m_mutex) {
     }
     return result;
 }
-
 #ifdef VL_LEAK_CHECKS
 std::unordered_set<FileLine*> fileLineLeakChecks;
 
@@ -553,18 +549,6 @@ void FileLine::operator delete(void* objp, size_t size) {
     ::operator delete(objp);
 }
 #endif
-
-void FileLine::stats() {
-#ifndef V3ERROR_NO_GLOBAL_
-    V3Stats::addStatSum("FileLines, Number of filenames",
-                        singleton().m_names.size());  // Max m_filenameno
-    V3Stats::addStatSum("FileLines, Message enable sets",
-                        singleton().m_internedMsgEns.size());  // Max m_msgEnIdx
-    // Don't currently have a good path to recording max line/column,
-    // Infrequently useful, alternatively we could keep globals we update as make each FileLine
-    // or could use fileLineLeakChecks.
-#endif
-}
 
 void FileLine::deleteAllRemaining() {
 #ifdef VL_LEAK_CHECKS

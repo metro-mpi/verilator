@@ -144,7 +144,6 @@ Gileadi
 Giri
 Gisselquist
 Gladkikh
-GmbH
 Goessling
 Gonnen
 Goorah
@@ -247,12 +246,10 @@ Lesik
 Libenzi
 Licker
 Liland
-LinkDot
 Liu
 Liwei
 Lockhart
 Longo
-LteS
 Luca
 Luiza
 Lussier
@@ -276,7 +273,6 @@ Mednick
 Mei
 Melo
 Menküc
-Menon
 Michail
 Michiels
 Microsystems
@@ -307,14 +303,12 @@ Nauticus
 Newgard
 Nigam
 Nikana
-Niraj
 Niranjan
 Nitza
 Noack
 Nodine
 Ober
 Oleg
-Oler
 Olof
 Olofsson
 Oron
@@ -335,7 +329,6 @@ Prabhat
 Prabhu
 Prateek
 Pre
-Precompiling
 Preprocess
 Pretet
 Pretl
@@ -409,7 +402,6 @@ Stroebel
 Strouble
 Stucki
 Su
-Subst
 Suguimoto
 Sundararajan
 Sunderland
@@ -445,7 +437,6 @@ UNOPTFLAT
 Ubixum
 Ueno
 Uints
-Undefine
 Undefines
 Unsized
 Urbach
@@ -471,7 +462,6 @@ Verilog
 Vighnesh
 Viktor
 Vilp
-VlWide
 Vlip
 Vm
 Vukobratovic
@@ -483,7 +473,6 @@ Wfuture
 Whatson
 Wildman
 Wim
-Wipfli
 Wmisleading
 Wno
 Wojciech
@@ -514,7 +503,6 @@ Zhang
 abirkmanis
 accessor
 accessors
-acyclic
 adrienlemasle
 agrobman
 ahouska
@@ -545,12 +533,10 @@ basename
 bbox
 benchmarking
 biguint
-binToOneHot
 bindir
 biops
 bisonpre
 bitOpTree
-bitaggregat
 bitop
 bitstoreal
 blackbox
@@ -589,24 +575,19 @@ combinational
 combinatorial
 commandArgsPlusMatch
 compilable
-computable
 concat
-concatenatable
 concats
 conf
 config
 const
 constexpr
-constification
 constpool
-contify
 coredump
 coroutine
 coroutines
 countbits
 countones
 cout
-covergroup
 cpp
 cppstyle
 cpu
@@ -631,13 +612,9 @@ defparam
 demangling
 dep
 deparametrized
-deque
 der
 dereference
-dereferenced
-dereferencing
 desassign
-deserialize
 destructor
 desynchronization
 detections
@@ -645,7 +622,6 @@ dev
 devcontainer
 devel
 dir
-disambiguates
 displayb
 distcc
 doxygen
@@ -674,7 +650,6 @@ elab
 eliasphanna
 elike
 elsif
-enablement
 endcase
 endcelldefine
 endclass
@@ -767,8 +742,6 @@ hierCMakeArgs
 hierMkArgs
 hierParameters
 hierVer
-html
-https
 hx
 hyperthreading
 hyperthreads
@@ -817,7 +790,6 @@ libtcmalloc
 libverilated
 linkers
 linter
-linters
 linux
 liu
 livelock
@@ -867,7 +839,6 @@ multithread
 multithreaded
 multithreading
 musl
-mutex
 mutexes
 mux
 muzafferkal
@@ -897,7 +868,6 @@ onehot
 ooo
 oprofile
 ortegon
-oversized
 oversubscription
 parallelized
 param
@@ -934,7 +904,6 @@ pre
 precisions
 precompiled
 predefines
-prefetch
 prepareClone
 prepend
 prepended
@@ -980,8 +949,6 @@ realtime
 realtobits
 recoding
 recrem
-recurse
-recurses
 redeclaring
 regs
 reloop
@@ -998,7 +965,6 @@ runtimes
 rw
 sVerilator
 saif
-sarif
 sawatzke
 sc
 scalared
@@ -1057,7 +1023,6 @@ swrite
 synthesizeable
 sys
 systemc
-taskify
 tcmalloc
 tenghtt
 testbench
@@ -1095,7 +1060,6 @@ typename
 uint
 un
 unbased
-uncomment
 undef
 undefineall
 undriven
@@ -1113,7 +1077,6 @@ unroller
 unsized
 unsup
 untyped
-upcasting
 urandom
 uselib
 utimes

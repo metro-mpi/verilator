@@ -13,6 +13,6 @@ test.scenarios('simulator')
 
 test.compile()
 
-test.execute(all_run_flags=['+verilator+rand+reset+0'])
+test.execute()
 
 test.passes()

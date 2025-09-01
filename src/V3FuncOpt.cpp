@@ -110,7 +110,7 @@ class BalanceConcatTree final {
 
     // Returns replacement node, or nullptr if no change
     static AstConcat* balance(AstConcat* const rootp) {
-        UINFO(9, "balanceConcat " << rootp);
+        UINFO(9, "balanceConcat " << rootp << "\n");
         // Gather all input vertices of the tree
         const std::vector<AstNodeExpr*> exprps = gatherTerms(rootp);
         // Don't bother with trivial trees
@@ -219,7 +219,7 @@ class FuncOptVisitor final : public VNVisitor {
     // Split wide assignments with a wide concatenation on the RHS.
     // Returns true if 'nodep' was deleted
     bool splitConcat(AstNodeAssign* nodep) {
-        UINFO(9, "splitConcat " << nodep);
+        UINFO(9, "splitConcat " << nodep << "\n");
         // Only care about concatenations on the right
         AstConcat* const rhsp = VN_CAST(nodep->rhsp(), Concat);
         if (!rhsp) return false;
@@ -228,8 +228,6 @@ class FuncOptVisitor final : public VNVisitor {
         UASSERT_OBJ(lhsp->width() == rhsp->width(), nodep, "Inconsistent assignment");
         // Only consider pure assignments. Nodes inserted below are safe.
         if (!nodep->user1() && (!lhsp->isPure() || !rhsp->isPure())) return false;
-        // Do not split assignments to SC variables, they cannot be assigned in parts
-        if (lhsp->exists([](AstVarRef* refp) { return refp->varp()->isSc(); })) return false;
         // Check for a Sel on the LHS if present, and skip over it
         uint32_t lsb = 0;
         if (AstSel* const selp = VN_CAST(lhsp, Sel)) {
@@ -255,7 +253,7 @@ class FuncOptVisitor final : public VNVisitor {
         if (!nodep->user1() && readsLhs(nodep)) return false;
 
         // Ok, actually split it now
-        UINFO(5, "splitConcat optimizing " << nodep);
+        UINFO(5, "splitConcat optimizing " << nodep << "\n");
         ++m_concatSplits;
         // The 2 parts and their offsets
         AstNodeExpr* const rrp = rhsp->rhsp()->unlinkFrBack();
@@ -282,7 +280,7 @@ class FuncOptVisitor final : public VNVisitor {
     // VISIT
     void visit(AstNodeAssign* nodep) override {
         // TODO: Only thing remaining inside functions should be AstAssign (that is, an actual
-        //       assignment statement), but we stil use AstAssignW, AstAssignDly, and all, fix.
+        //       assignment statemant), but we stil use AstAssignW, AstAssignDly, and all, fix.
         iterateChildren(nodep);
 
         if (v3Global.opt.fFuncSplitCat()) {
@@ -293,7 +291,7 @@ class FuncOptVisitor final : public VNVisitor {
     void visit(AstConcat* nodep) override {
         if (v3Global.opt.fFuncBalanceCat() && !nodep->user1() && !VN_IS(nodep->backp(), Concat)) {
             if (AstConcat* const newp = BalanceConcatTree::apply(nodep)) {
-                UINFO(5, "balanceConcat optimizing " << nodep);
+                UINFO(5, "balanceConcat optimizing " << nodep << "\n");
                 ++m_balancedConcats;
                 nodep->replaceWith(newp);
                 VL_DO_DANGLING(pushDeletep(nodep), nodep);
@@ -321,7 +319,7 @@ public:
 //######################################################################
 
 void V3FuncOpt::funcOptAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     {
         const VNUser1InUse user1InUse;
         V3ThreadScope threadScope;

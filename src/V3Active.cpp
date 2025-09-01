@@ -97,7 +97,6 @@ protected:
             result = vertexp->user();
             break;
         case LatchDetectGraphVertex::VT_BLOCK:  // (OR of potentially many siblings)
-            // cppcheck-suppress constVariableReference
             for (V3GraphEdge& edge : vertexp->outEdges()) {
                 if (latchCheckInternal(castVertexp(edge.top()))) {
                     result = true;
@@ -129,7 +128,6 @@ public:
     }
     // Clear out userp field of referenced outputs on destruction
     // (occurs at the end of each combinational always block)
-    // cppcheck-suppress duplInheritedMember
     void clear() {
         m_outputs.clear();
         // Calling base class clear will unlink & delete all edges & vertices
@@ -168,7 +166,7 @@ public:
     // paths make an assignment. Detected latches are flagged in the variables AstVar
     void latchCheck(AstNode* nodep, bool latch_expected) {
         bool latch_detected = false;
-        for (const AstVarRef* const vrp : m_outputs) {
+        for (const auto& vrp : m_outputs) {
             LatchDetectGraphVertex* const vertp = castVertexp(vrp->varp()->user1p());
             vertp->user(true);  // Identify the output vertex we are checking paths _to_
             if (!latchCheckInternal(castVertexp(vertices().frontp()))) latch_detected = true;
@@ -242,7 +240,7 @@ public:
     // Make a new AstActive sensitive to the given sentree and return it
     AstActive* makeActive(FileLine* const fl, AstSenTree* const senTreep) {
         AstActive* const activep = new AstActive{fl, "", senTreep};
-        activep->senTreeStorep(activep->sentreep());
+        activep->sensesStorep(activep->sensesp());
         addActive(activep);
         return activep;
     }
@@ -263,17 +261,17 @@ public:
     }
 
     // Return an AstActive that is sensitive to a SenTree equivalent to the given sentreep.
-    AstActive* getActive(FileLine* fl, AstSenTree* sentreep) {
-        UASSERT(sentreep, "Must be non-null");
+    AstActive* getActive(FileLine* fl, AstSenTree* sensesp) {
+        UASSERT(sensesp, "Must be non-null");
 
-        auto it = m_activeMap.find(*sentreep);
+        auto it = m_activeMap.find(*sensesp);
         // If found matching AstActive, return it
         if (it != m_activeMap.end()) return it->second;
 
         // No such AstActive yet, creat it, and add to map.
-        AstSenTree* const newsenp = sentreep->cloneTree(false);
+        AstSenTree* const newsenp = sensesp->cloneTree(false);
         AstActive* const activep = new AstActive{fl, "sequent", newsenp};
-        activep->senTreeStorep(activep->sentreep());
+        activep->sensesStorep(activep->sensesp());
         addActive(activep);
         m_activeMap.emplace(*newsenp, activep);
         return activep;
@@ -443,11 +441,11 @@ class ActiveVisitor final : public VNVisitor {
         wantactivep->addStmtsp(nodep);
     }
 
-    void visitAlways(AstNode* nodep, AstSenTree* oldsentreep, VAlwaysKwd kwd) {
+    void visitAlways(AstNode* nodep, AstSenTree* oldsensesp, VAlwaysKwd kwd) {
         // Move always to appropriate ACTIVE based on its sense list
-        if (oldsentreep && oldsentreep->sensesp() && oldsentreep->sensesp()->isNever()) {
+        if (oldsensesp && oldsensesp->sensesp() && oldsensesp->sensesp()->isNever()) {
             // Never executing.  Kill it.
-            UASSERT_OBJ(!oldsentreep->sensesp()->nextp(), nodep,
+            UASSERT_OBJ(!oldsensesp->sensesp()->nextp(), nodep,
                         "Never senitem should be alone, else the never should be eliminated.");
             VL_DO_DANGLING(nodep->unlinkFrBack()->deleteTree(), nodep);
             return;
@@ -459,9 +457,9 @@ class ActiveVisitor final : public VNVisitor {
             // Walk sensitivity list
             m_clockedProcess = false;
             m_allChanged = true;
-            if (oldsentreep) {
-                oldsentreep->unlinkFrBack();
-                iterateChildrenConst(oldsentreep);
+            if (oldsensesp) {
+                oldsensesp->unlinkFrBack();
+                iterateChildrenConst(oldsensesp);
             }
 
             // If all SenItems are ET_CHANGE, then walk the body to determine if this process
@@ -478,9 +476,9 @@ class ActiveVisitor final : public VNVisitor {
 
         AstActive* const wantactivep
             = !m_clockedProcess ? m_namer.getSpecialActive<AstSenItem::Combo>(nodep->fileline())
-              : oldsentreep     ? m_namer.getActive(nodep->fileline(), oldsentreep)
-                            // Clocked, no sensitivity lists, it's a suspendable, put it in initial
-                            : m_namer.getSpecialActive<AstSenItem::Initial>(nodep->fileline());
+              : oldsensesp      ? m_namer.getActive(nodep->fileline(), oldsensesp)
+                           // Clocked, no sensitivity lists, it's a suspendable, put it in initial
+                           : m_namer.getSpecialActive<AstSenItem::Initial>(nodep->fileline());
 
         // Move node to new active
         nodep->unlinkFrBack();
@@ -489,12 +487,12 @@ class ActiveVisitor final : public VNVisitor {
         // Warn and convert any delayed assignments
         {
             ActiveDlyVisitor{nodep, !m_clockedProcess ? ActiveDlyVisitor::CT_COMB
-                                    : oldsentreep     ? ActiveDlyVisitor::CT_SEQ
+                                    : oldsensesp      ? ActiveDlyVisitor::CT_SEQ
                                                       : ActiveDlyVisitor::CT_SUSPENDABLE};
         }
 
         // Delete sensitivity list
-        if (oldsentreep) VL_DO_DANGLING(oldsentreep->deleteTree(), oldsentreep);
+        if (oldsensesp) VL_DO_DANGLING(oldsensesp->deleteTree(), oldsensesp);
 
         // check combinational processes for latches
         if (!m_clockedProcess || kwd == VAlwaysKwd::ALWAYS_LATCH) {
@@ -536,7 +534,7 @@ class ActiveVisitor final : public VNVisitor {
             return;
         }
         visitSenItems(nodep);
-        visitAlways(nodep, nodep->sentreep(), nodep->keyword());
+        visitAlways(nodep, nodep->sensesp(), nodep->keyword());
     }
     void visit(AstAlwaysPostponed* nodep) override {
         // Might be empty with later optimizations, so this assertion can be removed,
@@ -547,23 +545,23 @@ class ActiveVisitor final : public VNVisitor {
         activep->addStmtsp(nodep->unlinkFrBack());
     }
     void visit(AstAlwaysObserved* nodep) override {
-        UASSERT_OBJ(nodep->sentreep(), nodep, "Should have a sentree");
-        AstSenTree* const sentreep = nodep->sentreep();
-        sentreep->unlinkFrBack();
+        UASSERT_OBJ(nodep->sensesp(), nodep, "Should have a sentree");
+        AstSenTree* const sensesp = nodep->sensesp();
+        sensesp->unlinkFrBack();
         // Make a new active for it, needs to be the only item under the active for V3Sched
-        AstActive* const activep = m_namer.makeActive(nodep->fileline(), sentreep);
+        AstActive* const activep = m_namer.makeActive(nodep->fileline(), sensesp);
         activep->addStmtsp(nodep->unlinkFrBack());
     }
     void visit(AstAlwaysReactive* nodep) override {
-        UASSERT_OBJ(nodep->sentreep(), nodep, "Should have a sentree");
-        AstSenTree* const sentreep = nodep->sentreep();
-        sentreep->unlinkFrBack();
+        UASSERT_OBJ(nodep->sensesp(), nodep, "Should have a sentree");
+        AstSenTree* const sensesp = nodep->sensesp();
+        sensesp->unlinkFrBack();
         // Make a new active for it, needs to be the only item under the active for V3Sched
-        AstActive* const activep = m_namer.makeActive(nodep->fileline(), sentreep);
+        AstActive* const activep = m_namer.makeActive(nodep->fileline(), sensesp);
         activep->addStmtsp(nodep->unlinkFrBack());
     }
     void visit(AstAlwaysPublic* nodep) override {
-        visitAlways(nodep, nodep->sentreep(), VAlwaysKwd::ALWAYS);
+        visitAlways(nodep, nodep->sensesp(), VAlwaysKwd::ALWAYS);
     }
     void visit(AstCFunc* nodep) override { visitSenItems(nodep); }
     void visit(AstSenItem* nodep) override {
@@ -649,7 +647,7 @@ public:
 // Active class functions
 
 void V3Active::activeAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { ActiveVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("active", 0, dumpTreeEitherLevel() >= 3);
 }

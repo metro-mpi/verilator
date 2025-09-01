@@ -34,11 +34,11 @@ V3Mutex V3Stats::s_mutex;
 class StatsVisitor final : public VNVisitorConst {
     struct Counters final {
         // Nodes of given type
-        std::array<uint64_t, VNType::_ENUM_END> m_statTypeCount = {};
+        uint64_t m_statTypeCount[VNType::_ENUM_END];
         // Nodes of given type with given type immediate child
-        std::array<std::array<uint64_t, VNType::_ENUM_END>, VNType::_ENUM_END> m_statAbove = {};
+        uint64_t m_statAbove[VNType::_ENUM_END][VNType::_ENUM_END];
         // Prediction of given type
-        std::array<uint64_t, VBranchPred::_ENUM_END> m_statPred = {};
+        uint64_t m_statPred[VBranchPred::_ENUM_END];
     };
 
     // STATE
@@ -102,7 +102,10 @@ public:
     StatsVisitor(AstNetlist* nodep, const std::string& stage, bool fastOnly)
         : m_fastOnly{fastOnly}
         , m_accump{fastOnly ? &m_dumpster : &m_counters} {
-        UINFO(9, "Starting stats, fastOnly=" << fastOnly);
+        UINFO(9, "Starting stats, fastOnly=" << fastOnly << endl);
+        memset(&m_counters, 0, sizeof(m_counters));
+        memset(&m_dumpster, 0, sizeof(m_dumpster));
+
         iterateConst(nodep);
 
         // Shorthand
@@ -176,4 +179,7 @@ void V3Stats::statsStageAll(AstNetlist* nodep, const std::string& stage, bool fa
     StatsVisitor{nodep, stage, fastOnly};
 }
 
-void V3Stats::statsFinalAll(AstNetlist* nodep) { statsStageAll(nodep, "Final"); }
+void V3Stats::statsFinalAll(AstNetlist* nodep) {
+    statsStageAll(nodep, "Final all");
+    statsStageAll(nodep, "Final fast", true);
+}

@@ -54,11 +54,18 @@ VL_DEFINE_DEBUG_FUNCTIONS;
 //######################################################################
 
 class LinkIncVisitor final : public VNVisitor {
+    // TYPES
+    enum InsertMode : uint8_t {
+        IM_BEFORE,  // Pointing at statement ref is in, insert before this
+        IM_AFTER,  // Pointing at last inserted stmt, insert after
+        IM_WHILE_PRECOND  // Pointing to for loop, add to body end
+    };
+
     // STATE
     AstNodeFTask* m_ftaskp = nullptr;  // Function or task we're inside
     AstNodeModule* m_modp = nullptr;  // Module we're inside
     int m_modIncrementsNum = 0;  // Var name counter
-    AstWhile* m_inWhileCondp = nullptr;  // Inside condition of this while loop
+    InsertMode m_insMode = IM_BEFORE;  // How to insert
     AstNode* m_insStmtp = nullptr;  // Where to insert statement
     bool m_unsupportedHere = false;  // Used to detect where it's not supported yet
 
@@ -79,14 +86,23 @@ class LinkIncVisitor final : public VNVisitor {
             m_modp->addStmtsp(newp);
         }
     }
-    void insertBeforeStmt(AstNode* nodep, AstNode* newp) {
+    void insertNextToStmt(AstNode* nodep, AstNode* newp) {
         // Return node that must be visited, if any
-        UINFOTREE(9, newp, "", "newstmt");
-        UASSERT_OBJ(m_insStmtp, nodep, "Expression not underneath a statement");
-        // In a while condition, the statement also needs to go on the
-        // back-edge to the loop header, 'incsp' is that place.
-        if (m_inWhileCondp) m_inWhileCondp->addIncsp(newp->cloneTreePure(true));
-        m_insStmtp->addHereThisAsNext(newp);
+        if (debug() >= 9) newp->dumpTree("-  newstmt: ");
+        UASSERT_OBJ(m_insStmtp, nodep, "Function not underneath a statement");
+        if (m_insMode == IM_BEFORE) {
+            // Add the whole thing before insertAt
+            if (debug() >= 9) newp->dumpTree("-  newfunc: ");
+            m_insStmtp->addHereThisAsNext(newp);
+        } else if (m_insMode == IM_AFTER) {
+            m_insStmtp->addNextHere(newp);
+        } else if (m_insMode == IM_WHILE_PRECOND) {
+            AstWhile* const whilep = VN_AS(m_insStmtp, While);
+            UASSERT_OBJ(whilep, nodep, "Insert should be under WHILE");
+            whilep->addPrecondsp(newp);
+        } else {
+            nodep->v3fatalSrc("Unknown InsertMode");
+        }
     }
 
     // VISITORS
@@ -104,13 +120,14 @@ class LinkIncVisitor final : public VNVisitor {
     }
     void visit(AstWhile* nodep) override {
         // Special, as statements need to be put in different places
+        // Preconditions insert first just before themselves (the normal
+        // rule for other statement types)
+        m_insStmtp = nullptr;  // First thing should be new statement
+        iterateAndNextNull(nodep->precondsp());
+        // Conditions insert first at end of precondsp.
+        m_insMode = IM_WHILE_PRECOND;
         m_insStmtp = nodep;
-        {
-            // Conditions insert before the loop and into incsp
-            VL_RESTORER(m_inWhileCondp);
-            m_inWhileCondp = nodep;
-            iterateAndNextNull(nodep->condp());
-        }
+        iterateAndNextNull(nodep->condp());
         // Body insert just before themselves
         m_insStmtp = nullptr;  // First thing should be new statement
         iterateAndNextNull(nodep->stmtsp());
@@ -143,6 +160,7 @@ class LinkIncVisitor final : public VNVisitor {
         m_insStmtp = nullptr;
     }
     void visit(AstCaseItem* nodep) override {
+        m_insMode = IM_BEFORE;
         {
             VL_RESTORER(m_unsupportedHere);
             m_unsupportedHere = true;
@@ -175,6 +193,7 @@ class LinkIncVisitor final : public VNVisitor {
         m_insStmtp = nullptr;
     }
     void visit(AstNodeStmt* nodep) override {
+        m_insMode = IM_BEFORE;
         m_insStmtp = nodep;
         iterateChildren(nodep);
         m_insStmtp = nullptr;  // Next thing should be new statement
@@ -182,14 +201,14 @@ class LinkIncVisitor final : public VNVisitor {
     void unsupported_visit(AstNode* nodep) {
         VL_RESTORER(m_unsupportedHere);
         m_unsupportedHere = true;
-        UINFO(9, "Marking unsupported " << nodep);
+        UINFO(9, "Marking unsupported " << nodep << endl);
         iterateChildren(nodep);
     }
     void visit(AstLogAnd* nodep) override { unsupported_visit(nodep); }
     void visit(AstLogOr* nodep) override { unsupported_visit(nodep); }
     void visit(AstLogEq* nodep) override { unsupported_visit(nodep); }
     void visit(AstLogIf* nodep) override { unsupported_visit(nodep); }
-    void visit(AstCond* nodep) override { unsupported_visit(nodep); }
+    void visit(AstNodeCond* nodep) override { unsupported_visit(nodep); }
     void visit(AstPropSpec* nodep) override { unsupported_visit(nodep); }
     void prepost_visit(AstNodeTriop* nodep) {
         // Check if we are underneath a statement
@@ -209,7 +228,7 @@ class LinkIncVisitor final : public VNVisitor {
     }
     void prepost_stmt_sel_visit(AstNodeTriop* nodep) {
         // Special case array[something]++, see comments at file top
-        // UINFOTREE(9, nodep, "", "pp-stmt-sel-in");
+        // if (debug() >= 9) nodep->dumpTree("-pp-stmt-sel-in:  ");
         iterateChildren(nodep);
         AstConst* const constp = VN_AS(nodep->lhsp(), Const);
         UASSERT_OBJ(nodep, constp, "Expecting CONST");
@@ -313,17 +332,18 @@ class LinkIncVisitor final : public VNVisitor {
             // Immediately after declaration - increment it by one
             AstAssign* const assignp
                 = new AstAssign{fl, new AstVarRef{fl, varp, VAccess::WRITE}, operp};
+            insertNextToStmt(nodep, assignp);
             // Immediately after incrementing - assign it to the original variable
-            assignp->addNext(new AstAssign{fl, writep, new AstVarRef{fl, varp, VAccess::READ}});
-            insertBeforeStmt(nodep, assignp);
+            assignp->addNextHere(
+                new AstAssign{fl, writep, new AstVarRef{fl, varp, VAccess::READ}});
         } else {
             // PostAdd/PostSub operations
             // Assign the original variable to the temporary one
             AstAssign* const assignp = new AstAssign{fl, new AstVarRef{fl, varp, VAccess::WRITE},
                                                      readp->cloneTreePure(true)};
+            insertNextToStmt(nodep, assignp);
             // Increment the original variable by one
-            assignp->addNext(new AstAssign{fl, writep, operp});
-            insertBeforeStmt(nodep, assignp);
+            assignp->addNextHere(new AstAssign{fl, writep, operp});
         }
 
         // Replace the node with the temporary
@@ -347,7 +367,7 @@ public:
 // Task class functions
 
 void V3LinkInc::linkIncrements(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { LinkIncVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("linkinc", 0, dumpTreeEitherLevel() >= 3);
 }

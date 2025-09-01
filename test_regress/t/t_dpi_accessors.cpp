@@ -45,10 +45,9 @@ static void logRegHex(int clk, const char* desc, int bitWidth, int val, const ch
 }
 
 // Convenience function to check we got an expected result. Silent on success.
-#define CHECK_RESULT(p, msg_fail) \
-    do { \
-        if (!(p)) vl_fatal(__FILE__, __LINE__, "dut", (msg_fail)); \
-    } while (0)
+static void checkResult(bool p, const char* msg_fail) {
+    if (!p) vl_fatal(__FILE__, __LINE__, "dut", msg_fail);
+}
 
 // Main function instantiates the model and steps through the test.
 int main() {
@@ -92,9 +91,9 @@ int main() {
     std::cout << std::endl;
 #endif
 
-    CHECK_RESULT((0 == a) && (0x00 == b) && (0x20 == mem32) && (1 == c) && (0xff == d)
-                     && (0x00 == e) && (0x00 == f),
-                 "Bad initial DPI values.");
+    checkResult((0 == a) && (0x00 == b) && (0x20 == mem32) && (1 == c) && (0xff == d)
+                    && (0x00 == e) && (0x00 == f),
+                "Bad initial DPI values.");
 
     // Initialize the clock
     dut->clk = 0;
@@ -118,9 +117,9 @@ int main() {
 #endif
         // On a posedge, a should toggle, on a negedge it should stay the
         // same.
-        CHECK_RESULT(((dut->clk == 1) && (a_after == (1 - a)))
-                         || ((dut->clk == 0) && (a_after == a)),
-                     "Test of scalar register reading failed.");
+        checkResult(((dut->clk == 1) && (a_after == (1 - a)))
+                        || ((dut->clk == 0) && (a_after == a)),
+                    "Test of scalar register reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -141,9 +140,9 @@ int main() {
         int b_after = (int)b_read();
         logRegHex(dut->clk, "read b", 8, b_after, " (after clk)");
         // b should increment on a posedge and stay the same on a negedge.
-        CHECK_RESULT(((dut->clk == 1) && (b_after == (b + 1)))
-                         || ((dut->clk == 0) && (b_after == b)),
-                     "Test of vector register reading failed.");
+        checkResult(((dut->clk == 1) && (b_after == (b + 1)))
+                        || ((dut->clk == 0) && (b_after == b)),
+                    "Test of vector register reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -167,7 +166,7 @@ int main() {
 
         // In this case, the value never changes. But we should check it is
         // what we expect (0x20).
-        CHECK_RESULT(mem32 == 0x20, "Test of array element reading failed.");
+        checkResult(mem32 == 0x20, "Test of array element reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -196,7 +195,7 @@ int main() {
         // Verilator, that means that it will only change value when "a"
         // changes on the posedge of a clock. That is "c" always holds the
         // inverse of the "after clock" value of "a".
-        CHECK_RESULT(c == (1 - a), "Test of scalar wire reading failed.");
+        checkResult(c == (1 - a), "Test of scalar wire reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -226,7 +225,7 @@ int main() {
         // but in Verilator, that means that it will only change value when
         // "b" changes on the posedge of a clock. That is "d" always holds
         // the inverse of the "after clock" value of "b".
-        CHECK_RESULT(d == ((~b) & 0xff), "Test of vector wire reading failed.");
+        checkResult(d == ((~b) & 0xff), "Test of vector wire reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -253,9 +252,9 @@ int main() {
 
         // On a posedge clock, the value of a that is written should toggle,
         // on a negedge, it should not.
-        CHECK_RESULT(((dut->clk == 1) && (a_after == (1 - a)))
-                         || ((dut->clk == 0) && (a_after == a)),
-                     "Test of scalar register writing failed.");
+        checkResult(((dut->clk == 1) && (a_after == (1 - a)))
+                        || ((dut->clk == 0) && (a_after == a)),
+                    "Test of scalar register writing failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -282,9 +281,9 @@ int main() {
 
         // The value of "b" written should increment on a posedge and stay the
         // same on a negedge.
-        CHECK_RESULT(((dut->clk == 1) && (b_after == (b + 1)))
-                         || ((dut->clk == 0) && (b_after == b)),
-                     "Test of vector register writing failed.");
+        checkResult(((dut->clk == 1) && (b_after == (b + 1)))
+                        || ((dut->clk == 0) && (b_after == b)),
+                    "Test of vector register writing failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -313,7 +312,7 @@ int main() {
         // happen if this part of the test coincided with the 32nd element
         // being overwritten, which it does not. Check that the value after
         // the clock is the same as before the clock.
-        CHECK_RESULT(mem32_after == mem32, "Test of array element writing failed.");
+        checkResult(mem32_after == mem32, "Test of array element writing failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -340,7 +339,7 @@ int main() {
         logRegHex(dut->clk, "read b [3:0]", 4, b_slice, " (after clk)");
 
         // The slice of "b" should always be the bottom 4 bits of "b"
-        CHECK_RESULT(b_slice == (b & 0x0f), "Test of vector register slice reading failed.");
+        checkResult(b_slice == (b & 0x0f), "Test of vector register slice reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -368,8 +367,8 @@ int main() {
 
         // The slice of "mem32" should always be the concatenation of the top
         // 2 and bottom 3 bits of "mem32"
-        CHECK_RESULT(mem32_slice == (((mem32 & 0xc0) >> 3) | (mem32 & 0x07)),
-                     "Test of array element slice reading failed.");
+        checkResult(mem32_slice == (((mem32 & 0xc0) >> 3) | (mem32 & 0x07)),
+                    "Test of array element slice reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -400,7 +399,7 @@ int main() {
         logRegHex(dut->clk, "read d [6:1]", 6, d_slice, " (after clk)");
 
         // The slice of "d" should always be the middle 6 bits of "d".
-        CHECK_RESULT(d_slice == ((d & 0x7e) >> 1), "Test of vector wire slice reading failed.");
+        checkResult(d_slice == ((d & 0x7e) >> 1), "Test of vector wire slice reading failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -432,7 +431,7 @@ int main() {
         // We must test that when we wrote the slice of "b", we only wrote the
         // correct bits. The slice of b is b[3:0]
         int b_new = (b & 0xf0) | (b_slice & 0x0f);
-        CHECK_RESULT(b_after == b_new, "Test of vector register slice writing failed.");
+        checkResult(b_after == b_new, "Test of vector register slice writing failed.");
 
         dut->eval();
 
@@ -471,7 +470,7 @@ int main() {
         // We must test that when we wrote the slice of "mem32", we only wrote
         // the correct bits. The slice of "mem32" is {mem32[7:6], mem32[2:0]}.
         int mem32_new = (mem32 & 0x38) | ((mem32_slice & 0x18) << 3) | (mem32_slice & 0x7);
-        CHECK_RESULT(mem32_after == mem32_new, "Test of vector register slice writing failed.");
+        checkResult(mem32_after == mem32_new, "Test of vector register slice writing failed.");
 
         dut->eval();
 
@@ -483,8 +482,8 @@ int main() {
         // We have already tested that array element writing works, so we just
         // check that the slice of "mem32" after the clock is the
         // concatenation of the top 2 and bottom 3 bits of "mem32"
-        CHECK_RESULT(mem32_slice == (((mem32 & 0xc0) >> 3) | (mem32 & 0x07)),
-                     "Test of array element slice writing failed.");
+        checkResult(mem32_slice == (((mem32 & 0xc0) >> 3) | (mem32 & 0x07)),
+                    "Test of array element slice writing failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -523,10 +522,10 @@ int main() {
         // and wires works. So we just need to check that l1 reads back as the
         // correct combination of bits after the clock. It should be the 15
         // bits: {b[3:0],mem[32][7:6],e[6:1],mem[32][2:0]}.
-        CHECK_RESULT(l1
-                         == ((((b & 0x0f) >> 0) << 11) | (((mem32 & 0xc0) >> 6) << 9)
-                             | (((e & 0x7e) >> 1) << 3) | (((mem32 & 0x07) >> 0) << 0)),
-                     "Test of complex register reading l1 failed.");
+        checkResult(l1
+                        == ((((b & 0x0f) >> 0) << 11) | (((mem32 & 0xc0) >> 6) << 9)
+                            | (((e & 0x7e) >> 1) << 3) | (((mem32 & 0x07) >> 0) << 0)),
+                    "Test of complex register reading l1 failed.");
     }
 
 #ifdef TEST_VERBOSE
@@ -563,8 +562,8 @@ int main() {
         // and wires works. So we just need to check that l1 reads back as the
         // correct combination of bits after the clock. It should be the 8
         // bits: {e[7:4], f[3:0]}.
-        CHECK_RESULT(l2 == ((e & 0xf0) | (f & 0x0f)),
-                     "Test of complex register reading l2 failed.");
+        checkResult(l2 == ((e & 0xf0) | (f & 0x0f)),
+                    "Test of complex register reading l2 failed.");
     }
 
     checkFinish(contextp.get(), "t_dpi_accessors unexpected finish");
@@ -606,8 +605,8 @@ int main() {
         int b_new = (b & 0xf0) | ((l1 & 0x7800) >> 11);
         int mem32_new = (mem32 & 0x38) | ((l1 & 0x0600) >> 3) | (l1 & 0x0007);
         int e_new = (e & 0x81) | ((l1 & 0x01f8) >> 2);
-        CHECK_RESULT((b_new == b_after) && (mem32_new == mem32_after) && (e_new == e_after),
-                     "Test of complex register writing l1 failed.");
+        checkResult((b_new == b_after) && (mem32_new == mem32_after) && (e_new == e_after),
+                    "Test of complex register writing l1 failed.");
 
         dut->eval();
 
@@ -651,8 +650,8 @@ int main() {
         // bits: {e[5:2], f[5:2]}
         int e_new = (e & 0xc3) | ((l2 & 0xf0) >> 2);
         int f_new = (f & 0xc3) | ((l2 & 0x0f) << 2);
-        CHECK_RESULT((e_new == e_after) && (f_new == f_after),
-                     "Test of complex register writing l2 failed.");
+        checkResult((e_new == e_after) && (f_new == f_after),
+                    "Test of complex register writing l2 failed.");
 
         dut->eval();
 

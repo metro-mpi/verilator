@@ -191,11 +191,12 @@ AstNodeDType* V3ParseGrammar::createArray(AstNodeDType* basep, AstNodeRange* nra
 AstVar* V3ParseGrammar::createVariable(FileLine* fileline, const string& name,
                                        AstNodeRange* arrayp, AstNode* attrsp) {
     AstNodeDType* dtypep = GRAMMARP->m_varDTypep;
-    UINFO(5, "  creVar " << name << "  decl=" << GRAMMARP->m_varDecl
-                         << "  io=" << GRAMMARP->m_varIO << "  dt=" << (dtypep ? "set" : ""));
+    UINFO(5, "  creVar " << name << "  decl=" << GRAMMARP->m_varDecl << "  io="
+                         << GRAMMARP->m_varIO << "  dt=" << (dtypep ? "set" : "") << endl);
     if (GRAMMARP->m_varIO == VDirection::NONE  // In non-ANSI port list
         && GRAMMARP->m_varDecl == VVarType::PORT) {
         // Just a port list with variable name (not v2k format); AstPort already created
+        if (dtypep) fileline->v3warn(E_UNSUPPORTED, "Unsupported: Ranges ignored in port-lists");
         if (arrayp) VL_DO_DANGLING(arrayp->deleteTree(), arrayp);
         if (attrsp) {
             // TODO: Merge attributes across list? Or warn attribute is ignored
@@ -260,8 +261,9 @@ AstVar* V3ParseGrammar::createVariable(FileLine* fileline, const string& name,
     }
     if (VN_IS(dtypep, ParseTypeDType)) {
         // Parser needs to know what is a type
-        AstNode* const newp = new AstTypedefFwd{fileline, name, VFwdType::NONE};
+        AstNode* const newp = new AstTypedefFwd{fileline, name};
         AstNode::addNext<AstNode, AstNode>(nodep, newp);
+        SYMP->reinsert(newp);
     }
     // Don't set dtypep in the ranging;
     // We need to autosize parameters and integers separately
@@ -282,7 +284,7 @@ AstVar* V3ParseGrammar::createVariable(FileLine* fileline, const string& name,
     return nodep;
 }
 
-string V3ParseGrammar::unquoteString(FileLine* fileline, const std::string& text) {
+string V3ParseGrammar::unquoteString(FileLine* fileline, string text) {
     string errMsg;
     string res = VString::unquoteSVString(text, errMsg);
     if (!errMsg.empty()) fileline->v3error(errMsg.c_str());

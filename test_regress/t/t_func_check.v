@@ -35,7 +35,7 @@ endmodule
 
 module chk (input clk, input rst_l, input expr);
 
-   int errors;
+   integer errors; initial errors = 0;
 
    task printerr;
       input [8*64:1] msg;

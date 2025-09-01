@@ -62,7 +62,9 @@ module t (/*AUTOARG*/
    end
 
    reg          sepassign_in;
+   // verilator lint_off UNOPTFLAT
    wire [3:0]   sepassign;
+   // verilator lint_on UNOPTFLAT
 
    // verilator lint_off UNOPT
    assign #0.1  sepassign[0]    = 0,

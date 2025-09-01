@@ -332,11 +332,11 @@ public:
 // Broken check entry point
 
 void V3Broken::brokenAll(AstNetlist* nodep) {
-    // UINFO(9, __FUNCTION__ << ": ");
+    // UINFO(9, __FUNCTION__ << ": " << endl);
     static bool inBroken = false;
     if (VL_UNCOVERABLE(inBroken)) {
         // A error called by broken can recurse back into broken; avoid this
-        UINFO(1, "Broken called under broken, skipping recursion.");  // LCOV_EXCL_LINE
+        UINFO(1, "Broken called under broken, skipping recursion.\n");  // LCOV_EXCL_LINE
     } else {
         inBroken = true;
 

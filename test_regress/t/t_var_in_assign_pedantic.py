@@ -12,8 +12,6 @@ import vltest_bootstrap
 test.scenarios('vlt')
 test.top_filename = "t/t_var_in_assign_bad.v"
 
-# Although this is mostly a lint test, do 'compile' to make sure we do not
-# generate thrash code in the presence of a warning that is not fatal
-test.compile(verilator_flags2=['-Wpedantic -Wno-fatal --flatten -fno-gate'])
+test.lint(verilator_flags2=['-Wpedantic -Wno-fatal'])
 
 test.passes()

@@ -11,11 +11,11 @@
 `endif
 
 module t;
-   bit clk = 0;
+   logic clk = 0;
    always #3 clk = ~clk;
 
-   bit flag_a;
-   bit flag_b;
+   logic flag_a;
+   logic flag_b;
    always @(posedge clk)
    begin
       `WRITE_VERBOSE(("[%0t] b <= 0\n", $time));

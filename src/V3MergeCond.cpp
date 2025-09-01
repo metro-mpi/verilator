@@ -95,11 +95,11 @@ namespace {
 // if there is one and it is in a supported position, which are:
 // - RHS is the Cond
 // - RHS is And(Const, Cond). This And is inserted often by V3Clean.
-AstCond* extractCondFromRhs(AstNode* rhsp) {
-    if (AstCond* const condp = VN_CAST(rhsp, Cond)) {
+AstNodeCond* extractCondFromRhs(AstNode* rhsp) {
+    if (AstNodeCond* const condp = VN_CAST(rhsp, NodeCond)) {
         return condp;
     } else if (const AstAnd* const andp = VN_CAST(rhsp, And)) {
-        if (AstCond* const condp = VN_CAST(andp->rhsp(), Cond)) {
+        if (AstNodeCond* const condp = VN_CAST(andp->rhsp(), NodeCond)) {
             if (VN_IS(andp->lhsp(), Const)) return condp;
         }
     }
@@ -177,7 +177,7 @@ class CodeMotionAnalysisVisitor final : public VNVisitorConst {
     static AstNodeExpr* extractCondition(const AstNodeStmt* nodep) {
         AstNodeExpr* conditionp = nullptr;
         if (const AstNodeAssign* const assignp = VN_CAST(nodep, NodeAssign)) {
-            if (AstCond* const conditionalp = extractCondFromRhs(assignp->rhsp())) {
+            if (AstNodeCond* const conditionalp = extractCondFromRhs(assignp->rhsp())) {
                 conditionp = conditionalp->condp();
             }
         } else if (const AstNodeIf* const ifp = VN_CAST(nodep, NodeIf)) {
@@ -276,7 +276,7 @@ class CodeMotionAnalysisVisitor final : public VNVisitorConst {
 
     // CONSTRUCTOR
     CodeMotionAnalysisVisitor(AstNode* nodep, StmtPropertiesAllocator& stmtProperties)
-        : m_stmtProperties{stmtProperties} {
+        : m_stmtProperties(stmtProperties) {
         iterateAndNextConstNull(nodep);
     }
 
@@ -399,7 +399,7 @@ class CodeMotionOptimizeVisitor final : public VNVisitor {
 
     // CONSTRUCTOR
     CodeMotionOptimizeVisitor(AstNode* nodep, const StmtPropertiesAllocator& stmtProperties)
-        : m_stmtProperties{stmtProperties} {
+        : m_stmtProperties(stmtProperties) {
         // We assert the given node is at the head of the list otherwise we might move a node
         // before the given node. This is easy to fix in the above iteration with a check on a
         // boundary node we should not move past, if we ever need to do so.
@@ -564,7 +564,7 @@ class MergeCondVisitor final : public VNVisitor {
                 return yieldsOneOrZero(biopp->lhsp()) && yieldsOneOrZero(biopp->rhsp());
             return false;
         }
-        if (const AstCond* const condp = VN_CAST(nodep, Cond)) {
+        if (const AstNodeCond* const condp = VN_CAST(nodep, NodeCond)) {
             return yieldsOneOrZero(condp->thenp()) && yieldsOneOrZero(condp->elsep());
         }
         if (const AstCCast* const castp = VN_CAST(nodep, CCast)) {
@@ -591,7 +591,7 @@ class MergeCondVisitor final : public VNVisitor {
     AstNodeExpr* foldAndUnlink(AstNodeExpr* rhsp, bool condTrue) {
         if (rhsp->sameTree(m_mgCondp)) {
             return new AstConst{rhsp->fileline(), AstConst::BitTrue{}, condTrue};
-        } else if (const AstCond* const condp = extractCondFromRhs(rhsp)) {
+        } else if (const AstNodeCond* const condp = extractCondFromRhs(rhsp)) {
             AstNodeExpr* const resp
                 = condTrue ? condp->thenp()->unlinkFrBack() : condp->elsep()->unlinkFrBack();
             if (condp == rhsp) return resp;
@@ -645,7 +645,7 @@ class MergeCondVisitor final : public VNVisitor {
         AstNodeIf* recursivep = nullptr;
         // Merge if list is longer than one node
         if (m_mgFirstp != m_mgLastp) {
-            UINFO(6, "MergeCond - First: " << m_mgFirstp << " Last: " << m_mgLastp);
+            UINFO(6, "MergeCond - First: " << m_mgFirstp << " Last: " << m_mgLastp << endl);
             ++m_statMerges;
             if (m_listLenght > m_statLongestList) m_statLongestList = m_listLenght;
 
@@ -886,7 +886,7 @@ public:
 // MergeConditionals class functions
 
 void V3MergeCond::mergeAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { MergeCondVisitor{nodep}; }
     V3Global::dumpCheckGlobalTree("merge_cond", 0, dumpTreeEitherLevel() >= 6);
 }

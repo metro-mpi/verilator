@@ -11,7 +11,7 @@ import vltest_bootstrap
 
 test.scenarios('simulator')
 
-test.compile(v_flags2=['+define+ALLOW_UNOPT', "-fno-dfg"])
+test.compile(v_flags2=['+define+ALLOW_UNOPT'])
 
 test.execute()
 

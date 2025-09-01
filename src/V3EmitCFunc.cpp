@@ -247,18 +247,17 @@ void EmitCFunc::displayArg(AstNode* dispp, AstNode** elistp, bool isScan, const 
     AstNode* argp = nullptr;
     if (!ignore) {
         argp = *elistp;
+        // Prep for next parameter
+        *elistp = (*elistp)->nextp();
         if (VL_UNCOVERABLE(!argp)) {
             // expectDisplay() checks this first, so internal error if found here
             dispp->v3error(
                 "Internal: Missing arguments for $display-like format");  // LCOV_EXCL_LINE
             return;  // LCOV_EXCL_LINE
         }
-        // Prep for next parameter
-        *elistp = (*elistp)->nextp();
         if (argp->widthMin() > VL_VALUE_STRING_MAX_WIDTH) {
-            dispp->v3warn(E_UNSUPPORTED, "Unsupported: Exceeded limit of "
-                                             + cvtToStr(VL_VALUE_STRING_MAX_WIDTH)
-                                             + " bits for any $display-like arguments");
+            dispp->v3error("Exceeded limit of " + cvtToStr(VL_VALUE_STRING_MAX_WIDTH)
+                           + " bits for any $display-like arguments");
         }
         if (argp->widthMin() > 8 && fmtLetter == 'c') {
             // Technically legal, but surely not what the user intended.
@@ -321,7 +320,7 @@ void EmitCFunc::displayNode(AstNode* nodep, AstScopeName* scopenamep, const stri
     bool inPct = false;
     bool ignore = false;
     for (; pos != vformat.end(); ++pos) {
-        // UINFO(1, "Parse '" << *pos << "'  IP" << inPct << " List " << cvtToHex(elistp));
+        // UINFO(1, "Parse '" << *pos << "'  IP" << inPct << " List " << cvtToHex(elistp) << endl);
         if (!inPct && pos[0] == '%') {
             inPct = true;
             ignore = false;
@@ -488,7 +487,6 @@ void EmitCFunc::emitCvtWideArray(AstNode* nodep, AstNode* fromp) {
 
 void EmitCFunc::emitConstant(AstConst* nodep, AstVarRef* assigntop, const string& assignString) {
     // Put out constant set to the specified variable, or given variable in a string
-    // TODO merge with V3EmitCConstInit::visit(AstConst)
     putns(nodep, "");
     if (nodep->num().isNull()) {
         putns(nodep, "VlNull{}");
@@ -497,7 +495,7 @@ void EmitCFunc::emitConstant(AstConst* nodep, AstVarRef* assigntop, const string
     } else if (nodep->num().isString()) {
         emitConstantString(nodep);
     } else if (nodep->isWide()) {
-        int upWidth = nodep->num().widthToFit();
+        int upWidth = nodep->num().widthMin();
         int chunks = 0;
         if (upWidth > EMITC_NUM_CONSTW * VL_EDATASIZE) {
             // Output e.g. 8 words in groups of e.g. 8
@@ -746,7 +744,7 @@ string EmitCFunc::emitVarResetRecurse(const AstVar* varp, bool constructing,
         return "";
     } else if (basicp && basicp->isDynamicTriggerScheduler()) {
         return "";
-    } else if (basicp && (basicp->isRandomGenerator() || basicp->isStdRandomGenerator())) {
+    } else if (basicp && basicp->isRandomGenerator()) {
         return "";
     } else if (basicp) {
         const bool zeroit
@@ -754,9 +752,7 @@ string EmitCFunc::emitVarResetRecurse(const AstVar* varp, bool constructing,
                || varp->isFuncLocal()  // Randomization too slow
                || (basicp && basicp->isZeroInit())
                || (v3Global.opt.underlineZero() && !varp->name().empty() && varp->name()[0] == '_')
-               || (varp->isXTemp()
-                       ? (v3Global.opt.xAssign() != "unique")
-                       : (v3Global.opt.xInitial() == "fast" || v3Global.opt.xInitial() == "0")));
+               || (v3Global.opt.xInitial() == "fast" || v3Global.opt.xInitial() == "0"));
         const bool slow = !varp->isFuncLocal() && !varp->isClassMember();
         splitSizeInc(1);
         if (dtypep->isWide()) {  // Handle unpacked; not basicp->isWide
@@ -769,21 +765,9 @@ string EmitCFunc::emitVarResetRecurse(const AstVar* varp, bool constructing,
                     out += cvtToStr(constp->num().edataWord(w)) + "U;\n";
                 }
             } else {
-                out += zeroit ? (slow ? "VL_ZERO_RESET_W(" : "VL_ZERO_W(")
-                              : (varp->isXTemp() ? "VL_SCOPED_RAND_RESET_ASSIGN_W("
-                                                 : "VL_SCOPED_RAND_RESET_W(");
+                out += zeroit ? (slow ? "VL_ZERO_RESET_W(" : "VL_ZERO_W(") : "VL_RAND_RESET_W(";
                 out += cvtToStr(dtypep->widthMin());
-                out += ", " + varNameProtected + suffix;
-                if (!zeroit) {
-                    emitVarResetScopeHash();
-                    const uint64_t salt = VString::hashMurmur(varp->prettyName());
-                    out += ", ";
-                    out += m_classOrPackage ? m_classOrPackageHash : "__VscopeHash";
-                    out += ", ";
-                    out += std::to_string(salt);
-                    out += "ull";
-                }
-                out += ");\n";
+                out += ", " + varNameProtected + suffix + ");\n";
             }
             return out;
         } else {
@@ -796,14 +780,9 @@ string EmitCFunc::emitVarResetRecurse(const AstVar* varp, bool constructing,
             if (zeroit || (v3Global.opt.xInitialEdge() && varp->isUsedClock())) {
                 out += " = 0;\n";
             } else {
-                emitVarResetScopeHash();
-                const uint64_t salt = VString::hashMurmur(varp->prettyName());
-                out += " = VL_SCOPED_RAND_RESET_";
-                if (varp->isXTemp()) out += "ASSIGN_";
+                out += " = VL_RAND_RESET_";
                 out += dtypep->charIQWN();
-                out += "(" + cvtToStr(dtypep->widthMin()) + ", "
-                       + (m_classOrPackage ? m_classOrPackageHash : "__VscopeHash") + ", "
-                       + std::to_string(salt) + "ull);\n";
+                out += "(" + cvtToStr(dtypep->widthMin()) + ");\n";
             }
             return out;
         }
@@ -811,16 +790,4 @@ string EmitCFunc::emitVarResetRecurse(const AstVar* varp, bool constructing,
         v3fatalSrc("Unknown node type in reset generator: " << varp->prettyTypeName());
     }
     return "";
-}
-
-void EmitCFunc::emitVarResetScopeHash() {
-    if (VL_LIKELY(m_createdScopeHash)) { return; }
-    if (m_classOrPackage) {
-        m_classOrPackageHash
-            = std::to_string(VString::hashMurmur(m_classOrPackage->name())) + "ULL";
-    } else {
-        puts(string("const uint64_t __VscopeHash = VL_MURMUR64_HASH(")
-             + (m_useSelfForThis ? "vlSelf" : "this") + "->name());\n");
-    }
-    m_createdScopeHash = true;
 }

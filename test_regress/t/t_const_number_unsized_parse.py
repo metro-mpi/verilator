@@ -7,6 +7,7 @@
 # Version 2.0.
 # SPDX-License-Identifier: LGPL-3.0-only OR Artistic-2.0
 
+import signal
 import vltest_bootstrap
 
 test.scenarios('vlt')
@@ -19,7 +20,7 @@ with open(test.top_filename, "w", encoding="utf8") as f:
         f.write(f"  int x{i} = 'd{i};\n")
     f.write("endmodule\n")
 
-test.timeout(30)
+signal.alarm(30)  # 30s timeout
 
 test.lint(verilator_flags2=[f"--max-num-width {2**29}"])
 

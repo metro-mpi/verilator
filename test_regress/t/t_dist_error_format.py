@@ -22,8 +22,6 @@ def formats():
     warns = {}
     lnmatch = 0
     for filename in test.glob_some(files):
-        if re.search(r'\.sarif\.out', filename):
-            continue
         wholefile = test.file_contents(filename)
         filename = os.path.basename(filename)
         if re.search(r'(Exiting due to|%Error|%Warning)', wholefile):
@@ -31,7 +29,6 @@ def formats():
             for line in wholefile.splitlines():
                 lineno += 1
                 line = re.sub(r'(\$display|\$write).*\".*%(Error|Warning)', '', line)
-                line = re.sub(r'<---.*', '', line)
                 if (re.search(r'(Error|Warning)', line)
                         and not re.search(r'^\s*<sformatf ', line)  # skip XML tag
                         and not re.search(r'^\s*{"type":"', line)  # skip JSON node
@@ -55,16 +52,14 @@ def formats():
                         #print("FF "+filename+": "+line)
                         fline = filename + ":" + str(lineno)
                         warns[fline] = "Non-standard warning/error: " + fline + ": " + line
-                        if test.verbose:
-                            print(warns[fline])
 
     if not lnmatch:
         test.error("Check line number regexp is correct, no matches")
     if len(warns):
         # First warning lists everything as that's shown in the driver summary
-        test.error_keep_going(' '.join(sorted(warns.keys())))
+        test.error(' '.join(sorted(warns.keys())))
         for filename in sorted(warns.keys()):
-            test.error_keep_going(warns[filename])
+            test.error(warns[filename])
 
 
 if not os.path.exists(root + "/.git"):

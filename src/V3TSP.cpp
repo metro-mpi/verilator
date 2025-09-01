@@ -112,7 +112,6 @@ public:
         // the edge user field. We also want easy access to the 'id'
         // which uniquely identifies a single bidir edge. Luckily we
         // can do both efficiently.
-        // cppcheck-suppress badBitmaskCheck
         const uint64_t userValue = (static_cast<uint64_t>(cost) << 32) | edgeId;
         (new V3GraphEdge{this, fp, tp, cost})->user(userValue);
         (new V3GraphEdge{this, tp, fp, cost})->user(userValue);
@@ -122,7 +121,6 @@ public:
         return static_cast<uint32_t>(edgep->user());
     }
 
-    // cppcheck-suppress duplInheritedMember
     bool empty() const { return m_vertices.empty(); }
 
     const std::list<Vertex*> keysToVertexList(const std::vector<T_Key>& odds) {
@@ -336,7 +334,7 @@ public:
         // Go on a random tour. Fun!
         std::vector<Vertex*> tour;
         do {
-            UINFO(6, "Adding " << cur_vertexp->key() << " to tour.");
+            UINFO(6, "Adding " << cur_vertexp->key() << " to tour.\n");
             tour.push_back(cur_vertexp);
 
             // Look for an arbitrary edge we've not yet marked
@@ -347,7 +345,7 @@ public:
                     markedEdgesp->insert(edgeId);
                     Vertex* const neighborp = castVertexp(edge.top());
                     UINFO(6, "following edge " << edgeId << " from " << cur_vertexp->key()
-                                               << " to " << neighborp->key());
+                                               << " to " << neighborp->key() << endl);
                     cur_vertexp = neighborp;
                     goto found;
                 }
@@ -355,7 +353,7 @@ public:
             v3fatalSrc("No unmarked edges found in tour");
         found:;
         } while (cur_vertexp != startp);
-        UINFO(6, "stopped, got back to start of tour @ " << cur_vertexp->key());
+        UINFO(6, "stopped, got back to start of tour @ " << cur_vertexp->key() << endl);
 
         // Look for nodes on the tour that still have
         // un-marked edges. If we find one, recurse.
@@ -367,7 +365,7 @@ public:
                 for (V3GraphEdge& edge : vxp->outEdges()) {
                     const uint32_t edgeId = getEdgeId(&edge);
                     if (markedEdgesp->end() == markedEdgesp->find(edgeId)) {
-                        UINFO(6, "Recursing.");
+                        UINFO(6, "Recursing.\n");
                         findEulerTourRecurse(markedEdgesp, vxp, sortedOutp);
                         recursed = true;
                         goto recursed;
@@ -378,11 +376,9 @@ public:
             sortedOutp->push_back(vxp->key());
         }
 
-        if (debug() >= 6) {
-            UINFO(0, "Tour was:");
-            for (const Vertex* vxp : tour) std::cout << "- " << vxp->key() << '\n';
-            std::cout << "-\n";
-        }
+        UINFO(6, "Tour was: ");
+        for (const Vertex* vxp : tour) UINFONL(6, "- " << vxp->key());
+        UINFONL(6, "-\n");
     }
 
     void dumpGraph(std::ostream& os, const string& nameComment) const {

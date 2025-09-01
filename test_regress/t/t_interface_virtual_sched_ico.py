@@ -11,7 +11,7 @@ import vltest_bootstrap
 
 test.scenarios('vlt_all')
 
-test.compile(verilator_flags2=["--binary"])
+test.compile(make_main=False, v_flags2=["--exe", test.pli_filename])
 
 test.execute(expect_filename=test.golden_filename)
 

@@ -188,7 +188,7 @@ class CaseVisitor final : public VNVisitor {
             m_caseNoOverlapsAllCovered = false;
             return false;  // Too wide for analysis
         }
-        UINFO(8, "Simple case statement: " << nodep);
+        UINFO(8, "Simple case statement: " << nodep << endl);
         const uint32_t numCases = 1UL << m_caseWidth;
         // Zero list of items for each value
         for (uint32_t i = 0; i < numCases; ++i) m_valueItem[i] = nullptr;
@@ -201,7 +201,7 @@ class CaseVisitor final : public VNVisitor {
         for (AstCaseItem* itemp = nodep->itemsp(); itemp;
              itemp = VN_AS(itemp->nextp(), CaseItem)) {
             for (AstNode* icondp = itemp->condsp(); icondp; icondp = icondp->nextp()) {
-                // UINFOTREE(9, icondp, "", "caseitem");
+                // if (debug() >= 9) icondp->dumpTree("-  caseitem: ");
                 AstConst* const iconstp = VN_AS(icondp, Const);
                 UASSERT_OBJ(iconstp, nodep, "above 'can't parse' should have caught this");
                 if (neverItem(nodep, iconstp)) {
@@ -216,7 +216,7 @@ class CaseVisitor final : public VNVisitor {
                     const uint32_t val = numval.toUInt();
 
                     uint32_t firstOverlap = 0;
-                    const AstNode* overlappedCondp = nullptr;
+                    AstNode* overlappedCondp = nullptr;
                     bool foundHit = false;
                     for (uint32_t i = 0; i < numCases; ++i) {
                         if ((i & mask) == val) {
@@ -307,7 +307,7 @@ class CaseVisitor final : public VNVisitor {
         // Not done earlier, as we may now have a nullptr because it's just a ";" NOP branch
         for (uint32_t i = 0; i < numCases; ++i) {
             if (AstNode* const condp = m_valueItem[i]) {
-                const AstCaseItem* const caseItemp = caseItemMap[condp];
+                AstCaseItem* caseItemp = caseItemMap[condp];
                 UASSERT(caseItemp, "caseItemp should exist");
                 m_valueItem[i] = caseItemp->stmtsp();
             }
@@ -325,7 +325,7 @@ class CaseVisitor final : public VNVisitor {
         } else {
             // Make left and right subtrees
             // cexpr[msb:lsb] == 1
-            AstNode* tree0p = replaceCaseFastRecurse(cexprp, msb - 1, upperValue);
+            AstNode* tree0p = replaceCaseFastRecurse(cexprp, msb - 1, upperValue | 0);
             AstNode* tree1p = replaceCaseFastRecurse(
                 cexprp, msb - 1, upperValue | (1UL << static_cast<uint32_t>(msb)));
 
@@ -376,7 +376,7 @@ class CaseVisitor final : public VNVisitor {
         if (debug() >= 9) {  // LCOV_EXCL_START
             for (uint32_t i = 0; i < (1UL << m_caseWidth); ++i) {
                 if (const AstNode* const itemp = m_valueItem[i]) {
-                    UINFO(9, "Value " << std::hex << i << " " << itemp);
+                    UINFO(9, "Value " << std::hex << i << " " << itemp << endl);
                 }
             }
         }  // LCOV_EXCL_STOP
@@ -396,7 +396,7 @@ class CaseVisitor final : public VNVisitor {
         }
         VL_DO_DANGLING(nodep->deleteTree(), nodep);
         VL_DO_DANGLING(cexprp->deleteTree(), cexprp);
-        UINFOTREE(9, ifrootp, "", "_simp");
+        if (debug() >= 9) ifrootp->dumpTree("-    _simp: ");
     }
 
     void replaceCaseComplicated(AstCase* nodep) {
@@ -407,7 +407,7 @@ class CaseVisitor final : public VNVisitor {
         AstNodeExpr* const cexprp = nodep->exprp()->unlinkFrBack();
         // We'll do this in two stages.  First stage, convert the conditions to
         // the appropriate IF AND terms.
-        UINFOTREE(9, nodep, "", "_comp_IN::");
+        if (debug() >= 9) nodep->dumpTree("-    _comp_IN::: ");
         bool hadDefault = false;
         for (AstCaseItem* itemp = nodep->itemsp(); itemp;
              itemp = VN_AS(itemp->nextp(), CaseItem)) {
@@ -474,7 +474,7 @@ class CaseVisitor final : public VNVisitor {
             nodep->addItemsp(new AstCaseItem{
                 nodep->fileline(), new AstConst{nodep->fileline(), AstConst::BitTrue{}}, nullptr});
         }
-        UINFOTREE(9, nodep, "", "_comp_COND");
+        if (debug() >= 9) nodep->dumpTree("-    _comp_COND: ");
         // Now build the IF statement tree
         // The tree can be quite huge.  Pull ever group of 8 out, and make a OR tree.
         // This reduces the depth for the bottom elements, at the cost of
@@ -524,12 +524,12 @@ class CaseVisitor final : public VNVisitor {
                 itemnextp = newp;
             }
         }
-        UINFOTREE(9, nodep, "", "_comp_TREE");
+        if (debug() >= 9) nodep->dumpTree("-    _comp_TREE: ");
         // Handle any assertions
         replaceCaseParallel(nodep, false);
         // Replace the CASE... with IF...
+        if (debug() >= 9 && grouprootp) grouprootp->dumpTree("-     _new: ");
         if (grouprootp) {
-            UINFOTREE(9, grouprootp, "", "_new");
             nodep->replaceWith(grouprootp);
         } else {
             nodep->unlinkFrBack();
@@ -548,7 +548,7 @@ class CaseVisitor final : public VNVisitor {
         }
     }
 
-    bool neverItem(const AstCase* casep, const AstConst* itemp) {
+    bool neverItem(AstCase* casep, AstConst* itemp) {
         // Xs in case or casez are impossible due to two state simulations
         if (casep->casex()) {
         } else if (casep->casez() || casep->caseInside()) {
@@ -563,7 +563,7 @@ class CaseVisitor final : public VNVisitor {
     void visit(AstCase* nodep) override {
         V3Case::caseLint(nodep);
         iterateChildren(nodep);
-        UINFOTREE(9, nodep, "", "case_old");
+        if (debug() >= 9) nodep->dumpTree("-  case_old: ");
         if (isCaseTreeFast(nodep) && v3Global.opt.fCase()) {
             // It's a simple priority encoder or complete statement
             // we can make a tree of statements to avoid extra comparisons
@@ -600,11 +600,11 @@ public:
 // Case class functions
 
 void V3Case::caseAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { CaseVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("case", 0, dumpTreeEitherLevel() >= 3);
 }
 void V3Case::caseLint(AstNodeCase* nodep) {
-    UINFO(4, __FUNCTION__ << ": ");
+    UINFO(4, __FUNCTION__ << ": " << endl);
     { CaseLintVisitor{nodep}; }
 }

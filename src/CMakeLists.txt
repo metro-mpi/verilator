@@ -48,7 +48,6 @@ set(HEADERS
     V3AstNodeDType.h
     V3AstNodeExpr.h
     V3AstNodeOther.h
-    V3AstNodeStmt.h
     V3AstUserAllocator.h
     V3Begin.h
     V3Branch.h
@@ -57,13 +56,12 @@ set(HEADERS
     V3CUse.h
     V3Case.h
     V3Cast.h
-    V3Cfg.h
     V3Class.h
     V3Clean.h
     V3Clock.h
     V3Combine.h
     V3Common.h
-    V3Control.h
+    V3Config.h
     V3Const.h
     V3Coverage.h
     V3CoverageJoin.h
@@ -74,13 +72,11 @@ set(HEADERS
     V3Descope.h
     V3Dfg.h
     V3DfgCache.h
-    V3DfgContext.h
     V3DfgOptimizer.h
     V3DfgPasses.h
     V3DfgPatternStats.h
-    V3DfgPeepholePatterns.h
+    V3DfgPeephole.h
     V3DfgVertices.h
-    V3DiagSarif.h
     V3DupFinder.h
     V3EmitC.h
     V3EmitCBase.h
@@ -99,8 +95,8 @@ set(HEADERS
     V3FileLine.h
     V3Force.h
     V3Fork.h
-    V3FuncOpt.h
     V3FunctionTraits.h
+    V3FuncOpt.h
     V3Gate.h
     V3Global.h
     V3Graph.h
@@ -137,14 +133,15 @@ set(HEADERS
     V3OptionParser.h
     V3Options.h
     V3Order.h
-    V3OrderGraph.h
     V3OrderInternal.h
+    V3OrderGraph.h
     V3OrderMoveGraph.h
     V3Os.h
     V3PairingHeap.h
     V3Param.h
     V3Parse.h
     V3ParseImp.h
+    V3ParseSym.h
     V3PchAstMT.h
     V3PchAstNoMT.h
     V3PreExpr.h
@@ -214,15 +211,12 @@ set(COMMON_SOURCES
     V3CUse.cpp
     V3Case.cpp
     V3Cast.cpp
-    V3Cfg.cpp
-    V3CfgBuilder.cpp
-    V3CfgLiveVariables.cpp
     V3Class.cpp
     V3Clean.cpp
     V3Clock.cpp
     V3Combine.cpp
     V3Common.cpp
-    V3Control.cpp
+    V3Config.cpp
     V3Const__gen.cpp
     V3Coverage.cpp
     V3CoverageJoin.cpp
@@ -233,18 +227,15 @@ set(COMMON_SOURCES
     V3Descope.cpp
     V3Dfg.cpp
     V3DfgAstToDfg.cpp
-    V3DfgBreakCycles.cpp
     V3DfgCache.cpp
-    V3DfgColorSCCs.cpp
     V3DfgDecomposition.cpp
     V3DfgDfgToAst.cpp
     V3DfgOptimizer.cpp
     V3DfgPasses.cpp
     V3DfgPeephole.cpp
     V3DfgRegularize.cpp
-    V3DfgSynthesize.cpp
-    V3DiagSarif.cpp
     V3DupFinder.cpp
+    V3Timing.cpp
     V3EmitCBase.cpp
     V3EmitCConstPool.cpp
     V3EmitCFunc.cpp
@@ -306,10 +297,6 @@ set(COMMON_SOURCES
     V3OrderSerial.cpp
     V3Os.cpp
     V3Param.cpp
-    V3ParseGrammar.cpp
-    V3ParseImp.cpp
-    V3ParseLex.cpp
-    V3PreProc.cpp
     V3PreShell.cpp
     V3Premit.cpp
     V3ProtectLib.cpp
@@ -333,14 +320,13 @@ set(COMMON_SOURCES
     V3StatsReport.cpp
     V3String.cpp
     V3Subst.cpp
-    V3TSP.cpp
     V3Table.cpp
     V3Task.cpp
     V3ThreadPool.cpp
-    V3Timing.cpp
     V3Trace.cpp
     V3TraceDecl.cpp
     V3Tristate.cpp
+    V3TSP.cpp
     V3Udp.cpp
     V3Undriven.cpp
     V3Unknown.cpp
@@ -350,6 +336,10 @@ set(COMMON_SOURCES
     V3Width.cpp
     V3WidthCommit.cpp
     V3WidthSel.cpp
+    V3ParseImp.cpp
+    V3ParseGrammar.cpp
+    V3ParseLex.cpp
+    V3PreProc.cpp
 )
 
 set(COVERAGE_SOURCES VlcMain.cpp)
@@ -378,8 +368,8 @@ add_custom_command(
     COMMAND ${PYTHON3}
     ARGS
         ${ASTGEN} -I "${srcdir}" --astdef V3AstNodeDType.h --astdef
-        V3AstNodeExpr.h --astdef V3AstNodeOther.h --astdef V3AstNodeStmt.h
-        --dfgdef V3DfgVertices.h --classes
+        V3AstNodeExpr.h --astdef V3AstNodeOther.h --dfgdef V3DfgVertices.h
+        --classes
 )
 list(
     APPEND
@@ -491,8 +481,8 @@ foreach(astgen_name ${ASTGENERATED_NAMES})
         COMMAND ${PYTHON3}
         ARGS
             ${ASTGEN} -I "${srcdir}" --astdef V3AstNodeDType.h --astdef
-            V3AstNodeExpr.h --astdef V3AstNodeOther.h --astdef V3AstNodeStmt.h
-            --dfgdef V3DfgVertices.h ${astgen_name}.cpp
+            V3AstNodeExpr.h --astdef V3AstNodeOther.h --dfgdef V3DfgVertices.h
+            ${astgen_name}.cpp
     )
     list(APPEND GENERATED_FILES ${astgen_name}__gen.cpp)
 endforeach()

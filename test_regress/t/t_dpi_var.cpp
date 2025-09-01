@@ -19,27 +19,25 @@
 
 struct MyMon {
     uint32_t* sigsp[2];
-    uint32_t addend = 0;
     MyMon() {
         sigsp[0] = NULL;
         sigsp[1] = NULL;
     }
 };
-MyMon mons[4];
+MyMon mons[2];
 
-void mon_register_a(const char* namep, void* sigp, bool isOut, int n, int addend) {
+void mon_register_a(const char* namep, void* sigp, bool isOut) {
     // Callback from initial block in monitor
 #ifdef TEST_VERBOSE
-    VL_PRINTF("-     mon_register_a(\"%s\", %p, %d, %d, %d);\n", namep, sigp, isOut, n, addend);
+    VL_PRINTF("-     mon_register_a(\"%s\", %p, %d);\n", namep, sigp, isOut);
 #endif
-    mons[n].sigsp[isOut] = (uint32_t*)sigp;
-    mons[n].addend = addend;
+    mons[0].sigsp[isOut] = (uint32_t*)sigp;
 }
 
 void mon_do(MyMon* monp) {
     if (!monp->sigsp[0]) vl_fatal(__FILE__, __LINE__, "", "never registered");
     if (!monp->sigsp[1]) vl_fatal(__FILE__, __LINE__, "", "never registered");
-    *monp->sigsp[1] = (*(monp->sigsp[0])) + monp->addend;
+    *monp->sigsp[1] = (*(monp->sigsp[0])) + 1;
 
 #ifdef TEST_VERBOSE
     VL_PRINTF("-     mon_do(%08x(&%p) -> %08x(&%p));\n", *(monp->sigsp[0]), monp->sigsp[0],
@@ -68,10 +66,11 @@ void mon_scope_name(const char* namep) {
         vl_fatal(__FILE__, __LINE__, "", ("Unexp dpiscope name "s + modp).c_str());
 }
 
-extern "C" void mon_register_b(const char* namep, int isOut, int n, int addend) {
+extern "C" void mon_register_b(const char* namep, int isOut);
+void mon_register_b(const char* namep, int isOut) {
     const char* modp = svGetNameFromScope(svGetScope());
 #ifdef TEST_VERBOSE
-    VL_PRINTF("-     mon_register_b('%s', \"%s\", %d, %d %d);\n", modp, namep, isOut, n, addend);
+    VL_PRINTF("-     mon_register_b('%s', \"%s\", %d);\n", modp, namep, isOut);
 #endif
     // Use scope to get pointer and size of signal
     const VerilatedScope* scopep = Verilated::dpiScope();
@@ -83,8 +82,7 @@ extern "C" void mon_register_b(const char* namep, int isOut, int n, int addend) 
     } else {
         uint32_t* datap = (uint32_t*)(varp->datap());
         VL_PRINTF("-     mon_register_b('%s', \"%s\", %p, %d);\n", modp, namep, datap, isOut);
-        mons[n].sigsp[isOut] = (uint32_t*)(varp->datap());
-        mons[n].addend = addend;
+        mons[1].sigsp[isOut] = (uint32_t*)(varp->datap());
     }
 }
 
@@ -108,8 +106,6 @@ void mon_eval() {
     // Callback from always@ negedge
     mon_do(&mons[0]);
     mon_do(&mons[1]);
-    mon_do(&mons[2]);
-    mon_do(&mons[3]);
 }
 
 //======================================================================

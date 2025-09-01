@@ -201,7 +201,7 @@ class TraceVisitor final : public VNVisitor {
     // METHODS
 
     void detectDuplicates() {
-        UINFO(9, "Finding duplicates");
+        UINFO(9, "Finding duplicates\n");
         // Note uses user4
         V3DupFinder dupFinder;  // Duplicate code detection
         // Hash all of the traced values and find if there are any duplicates
@@ -217,8 +217,8 @@ class TraceVisitor final : public VNVisitor {
                     UASSERT_OBJ(dupDeclp, nodep, "Trace duplicate of wrong type");
                     TraceTraceVertex* const dupvertexp
                         = dupDeclp->user1u().toGraphVertex()->cast<TraceTraceVertex>();
-                    UINFO(8, "  Orig " << nodep);
-                    UINFO(8, "   dup " << dupDeclp);
+                    UINFO(8, "  Orig " << nodep << endl);
+                    UINFO(8, "   dup " << dupDeclp << endl);
                     // Mark the hashed node as the original and our
                     // iterating node as duplicated
                     vvertexp->duplicatep(dupvertexp);
@@ -308,14 +308,14 @@ class TraceVisitor final : public VNVisitor {
         for (V3GraphVertex& vtx : m_graph.vertices()) {
             if (TraceTraceVertex* const vtxp = vtx.cast<TraceTraceVertex>()) {
                 ActCodeSet actSet;
-                UINFO(9, "  Add to sort: " << vtxp);
-                UINFOTREE(9, vtxp->nodep(), "", "trnode");
+                UINFO(9, "  Add to sort: " << vtxp << endl);
+                if (debug() >= 9) vtxp->nodep()->dumpTree("-   trnode: ");
                 for (const V3GraphEdge& edge : vtxp->inEdges()) {
                     const TraceActivityVertex* const cfvertexp
                         = edge.fromp()->cast<const TraceActivityVertex>();
                     UASSERT_OBJ(cfvertexp, vtxp->nodep(),
                                 "Should have been function pointing to this trace");
-                    UINFO(9, "   Activity: " << cfvertexp);
+                    UINFO(9, "   Activity: " << cfvertexp << endl);
                     if (cfvertexp->activityAlways()) {
                         // If code 0, we always trace; ignore other codes
                         actSet.insert(TraceActivityVertex::ACTIVITY_ALWAYS);
@@ -519,8 +519,8 @@ class TraceVisitor final : public VNVisitor {
         if (isTopFunc) {
             // Top functions
             funcp->argTypes("void* voidSelf, " + bufArg);
-            addInitStr(EmitCUtil::voidSelfAssign(m_topModp));
-            addInitStr(EmitCUtil::symClassAssign());
+            addInitStr(EmitCBase::voidSelfAssign(m_topModp));
+            addInitStr(EmitCBase::symClassAssign());
             // Add global activity check to change dump functions
             if (traceType == VTraceType::CHANGE) {  //
                 addInitStr("if (VL_UNLIKELY(!vlSymsp->__Vm_activity)) return;\n");
@@ -568,7 +568,7 @@ class TraceVisitor final : public VNVisitor {
             topFuncp->addStmtsp(callp->makeStmt());
         }
         // Done
-        UINFO(5, "  newCFunc " << funcp);
+        UINFO(5, "  newCFunc " << funcp << endl);
         return funcp;
     }
 
@@ -732,8 +732,8 @@ class TraceVisitor final : public VNVisitor {
         cleanupFuncp->isStatic(true);
         cleanupFuncp->isLoose(true);
         m_topScopep->addBlocksp(cleanupFuncp);
-        cleanupFuncp->addInitsp(new AstCStmt{fl, EmitCUtil::voidSelfAssign(m_topModp)});
-        cleanupFuncp->addInitsp(new AstCStmt{fl, EmitCUtil::symClassAssign()});
+        cleanupFuncp->addInitsp(new AstCStmt{fl, EmitCBase::voidSelfAssign(m_topModp)});
+        cleanupFuncp->addInitsp(new AstCStmt{fl, EmitCBase::symClassAssign()});
 
         // Register it
         m_regFuncp->addStmtsp(new AstText{fl, "tracep->addCleanupCb(", true});
@@ -850,7 +850,7 @@ class TraceVisitor final : public VNVisitor {
     void visit(AstStmtExpr* nodep) override {
         if (!m_finding && !nodep->user2()) {
             if (AstCCall* const callp = VN_CAST(nodep->exprp(), CCall)) {
-                UINFO(8, "   CCALL " << callp);
+                UINFO(8, "   CCALL " << callp << endl);
                 // See if there are other calls in same statement list;
                 // If so, all funcs might share the same activity code
                 TraceActivityVertex* const activityVtxp
@@ -859,7 +859,7 @@ class TraceVisitor final : public VNVisitor {
                     if (AstStmtExpr* const stmtp = VN_CAST(nextp, StmtExpr)) {
                         if (AstCCall* const ccallp = VN_CAST(stmtp->exprp(), CCall)) {
                             stmtp->user2(true);  // Processed
-                            UINFO(8, "     SubCCALL " << ccallp);
+                            UINFO(8, "     SubCCALL " << ccallp << endl);
                             V3GraphVertex* const ccallFuncVtxp = getCFuncVertexp(ccallp->funcp());
                             activityVtxp->slow(ccallp->funcp()->slow());
                             new V3GraphEdge{&m_graph, activityVtxp, ccallFuncVtxp, 1};
@@ -871,7 +871,7 @@ class TraceVisitor final : public VNVisitor {
         iterateChildren(nodep);
     }
     void visit(AstCFunc* nodep) override {
-        UINFO(8, "   CFUNC " << nodep);
+        UINFO(8, "   CFUNC " << nodep << endl);
         V3GraphVertex* const funcVtxp = getCFuncVertexp(nodep);
         if (!m_finding) {  // If public, we need a unique activity code to allow for sets
                            // directly in this func
@@ -888,7 +888,7 @@ class TraceVisitor final : public VNVisitor {
         iterateChildren(nodep);
     }
     void visit(AstTraceDecl* nodep) override {
-        UINFO(8, "   TRACE " << nodep);
+        UINFO(8, "   TRACE " << nodep << endl);
         if (!m_finding) {
             V3GraphVertex* const vertexp = new TraceTraceVertex{&m_graph, nodep};
             nodep->user1p(vertexp);
@@ -944,7 +944,7 @@ public:
 // Trace class functions
 
 void V3Trace::traceAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { TraceVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("trace", 0, dumpTreeEitherLevel() >= 3);
 }

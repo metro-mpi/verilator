@@ -238,7 +238,6 @@ def report_mtasks():
     thread_mtask_time = collections.defaultdict(lambda: 0)
     long_mtask_time = 0
     long_mtask = None
-    long_mtask_hier_block = None
     predict_mtask_time = 0
     predict_elapsed = 0
     for (hier_block, mtask_id) in Mtasks:
@@ -279,9 +278,6 @@ def report_mtasks():
     min_mtask = None
     max_p2e = -1000000
     max_mtask = None
-
-    min_hier_block = None
-    max_hier_block = None
 
     for (hier_block, mtask_id) in sorted(Mtasks.keys()):
         mtask = Mtasks[(hier_block, mtask_id)]
@@ -617,7 +613,7 @@ SPDX-License-Identifier: LGPL-3.0-only OR Artistic-2.0""")
 
 parser.add_argument('--debug', action='store_true', help='enable debug')
 parser.add_argument('--no-vcd', help='disable creating vcd', action='store_true')
-parser.add_argument('--vcd', help='filename for vcd output', default='profile_exec.vcd')
+parser.add_argument('--vcd', help='filename for vcd outpue', default='profile_exec.vcd')
 parser.add_argument('filename',
                     help='input profile_exec.dat filename to process',
                     default='profile_exec.dat')

@@ -38,16 +38,13 @@ public:
         : m_value{0} {}
     explicit V3Hash(uint32_t val)
         : m_value{val} {}
+    explicit V3Hash(int32_t val)
+        : m_value{static_cast<uint32_t>(val)} {}
     explicit V3Hash(uint64_t val)
         : m_value{combine(static_cast<uint32_t>(val), static_cast<uint32_t>(val >> 32))} {}
-    explicit V3Hash(const std::string& val);
-
-    explicit V3Hash(int32_t val)
-        : V3Hash{static_cast<uint32_t>(val)} {}
     explicit V3Hash(int64_t val)
-        : V3Hash{static_cast<uint64_t>(val)} {}
-    explicit V3Hash(const void* val)
-        : V3Hash{static_cast<uint64_t>(reinterpret_cast<uintptr_t>(val))} {}
+        : m_value{combine(static_cast<uint32_t>(val), static_cast<uint32_t>(val >> 32))} {}
+    explicit V3Hash(const std::string& val);
 
     // METHODS
     uint32_t value() const VL_MT_SAFE { return m_value; }

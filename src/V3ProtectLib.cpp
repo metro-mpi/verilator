@@ -18,7 +18,7 @@
 
 #include "V3ProtectLib.h"
 
-#include "V3Control.h"
+#include "V3Config.h"
 #include "V3Hasher.h"
 #include "V3InstrCount.h"
 #include "V3String.h"
@@ -89,7 +89,7 @@ class ProtectVisitor final : public VNVisitor {
 
         iterateChildren(nodep);
 
-        // cppcheck-suppress unreadVariable
+        // cppcheck-has-bug-suppress unreadVariable
         const V3Hash hash = V3Hasher::uncachedHash(m_cfilep);
         m_hashValuep->addText(fl, cvtToStr(hash.value()) + ";\n");
         m_cHashValuep->addText(fl, cvtToStr(hash.value()) + "U;\n");
@@ -126,10 +126,10 @@ class ProtectVisitor final : public VNVisitor {
 
         txtp->addText(fl, "hier_workers -hier-dpi \"" + m_libName
                               + "_protectlib_combo_update\" -workers 16'd"
-                              + std::to_string(V3Control::getHierWorkers(m_libName)) + "\n");
+                              + std::to_string(V3Config::getHierWorkers(m_libName)) + "\n");
         txtp->addText(fl, "hier_workers -hier-dpi \"" + m_libName
                               + "_protectlib_seq_update\" -workers 16'd"
-                              + std::to_string(V3Control::getHierWorkers(m_libName)) + "\n");
+                              + std::to_string(V3Config::getHierWorkers(m_libName)) + "\n");
         // No workers for combo_ignore
         txtp->addText(fl, "`verilog\n");
         txtp->addText(fl, "`endif\n");
@@ -267,9 +267,9 @@ class ProtectVisitor final : public VNVisitor {
         txtp->addText(fl, "end\n\n");
 
         // Combinatorial process
-        addComment(txtp, fl, "Combinatorially evaluate changes to inputs");
+        addComment(txtp, fl, "Combinatorialy evaluate changes to inputs");
         m_comboParamsp = new AstTextBlock{fl,
-                                          "always_comb begin\n"
+                                          "always @* begin\n"
                                           "last_combo_seqnum__V = "
                                               + m_libName + "_protectlib_combo_update(\n",
                                           false, true};
@@ -302,7 +302,7 @@ class ProtectVisitor final : public VNVisitor {
 
         // Select between combinatorial and sequential results
         addComment(txtp, fl, "Select between combinatorial and sequential results");
-        txtp->addText(fl, "always_comb begin\n");
+        txtp->addText(fl, "always @* begin\n");
         if (m_hasClk) {
             m_seqAssignsp = new AstTextBlock{fl, "if (last_seq_seqnum__V > "
                                                  "last_combo_seqnum__V) begin\n"};
@@ -459,9 +459,8 @@ class ProtectVisitor final : public VNVisitor {
         handleInput(varp);
         m_seqPortsp->addNodesp(varp->cloneTree(false));
         if (m_hasClk) {
-            m_seqParamsp->addText(fl, varp->prettyName() + "\n");
-            m_clkSensp->addText(fl, "posedge " + varp->prettyName() + " or negedge "
-                                        + varp->prettyName());
+            m_seqParamsp->addText(fl, varp->name() + "\n");
+            m_clkSensp->addText(fl, "posedge " + varp->name() + " or negedge " + varp->name());
         }
         m_cSeqParamsp->addText(fl, varp->dpiArgType(true, false) + "\n");
         m_cSeqClksp->addText(fl, cInputConnection(varp));
@@ -471,9 +470,9 @@ class ProtectVisitor final : public VNVisitor {
         FileLine* const fl = varp->fileline();
         handleInput(varp);
         m_comboPortsp->addNodesp(varp->cloneTree(false));
-        m_comboParamsp->addText(fl, varp->prettyName() + "\n");
+        m_comboParamsp->addText(fl, varp->name() + "\n");
         m_comboIgnorePortsp->addNodesp(varp->cloneTree(false));
-        if (m_hasClk) m_comboIgnoreParamsp->addText(fl, varp->prettyName() + "\n");
+        if (m_hasClk) m_comboIgnoreParamsp->addText(fl, varp->name() + "\n");
         m_cComboParamsp->addText(fl, varp->dpiArgType(true, false) + "\n");
         m_cComboInsp->addText(fl, cInputConnection(varp));
         m_cIgnoreParamsp->addText(fl, varp->dpiArgType(true, false) + "\n");
@@ -481,7 +480,7 @@ class ProtectVisitor final : public VNVisitor {
 
     void handleInput(AstVar* varp) { m_modPortsp->addNodesp(varp->cloneTree(false)); }
 
-    static void addLocalVariable(AstTextBlock* textp, const AstVar* varp, const char* suffix) {
+    static void addLocalVariable(AstTextBlock* textp, AstVar* varp, const char* suffix) {
         AstVar* const newVarp
             = new AstVar{varp->fileline(), VVarType::VAR, varp->name() + suffix, varp->dtypep()};
         textp->addNodesp(newVarp);
@@ -491,10 +490,10 @@ class ProtectVisitor final : public VNVisitor {
         FileLine* const fl = varp->fileline();
         m_modPortsp->addNodesp(varp->cloneTree(false));
         m_comboPortsp->addNodesp(varp->cloneTree(false));
-        m_comboParamsp->addText(fl, varp->prettyName() + "_combo__V\n");
+        m_comboParamsp->addText(fl, varp->name() + "_combo__V\n");
         if (m_hasClk) {
             m_seqPortsp->addNodesp(varp->cloneTree(false));
-            m_seqParamsp->addText(fl, varp->prettyName() + "_tmp__V\n");
+            m_seqParamsp->addText(fl, varp->name() + "_tmp__V\n");
         }
 
         addLocalVariable(m_comboDeclsp, varp, "_combo__V");
@@ -503,13 +502,10 @@ class ProtectVisitor final : public VNVisitor {
             addLocalVariable(m_seqDeclsp, varp, "_seq__V");
             addLocalVariable(m_tmpDeclsp, varp, "_tmp__V");
 
-            m_nbAssignsp->addText(fl, varp->prettyName() + "_seq__V <= " + varp->prettyName()
-                                          + "_tmp__V;\n");
-            m_seqAssignsp->addText(fl,
-                                   varp->prettyName() + " = " + varp->prettyName() + "_seq__V;\n");
+            m_nbAssignsp->addText(fl, varp->name() + "_seq__V <= " + varp->name() + "_tmp__V;\n");
+            m_seqAssignsp->addText(fl, varp->name() + " = " + varp->name() + "_seq__V;\n");
         }
-        m_comboAssignsp->addText(fl,
-                                 varp->prettyName() + " = " + varp->prettyName() + "_combo__V;\n");
+        m_comboAssignsp->addText(fl, varp->name() + " = " + varp->name() + "_combo__V;\n");
         m_cComboParamsp->addText(fl, varp->dpiArgType(true, false) + "\n");
         m_cComboOutsp->addText(fl,
                                V3Task::assignInternalToDpi(varp, true, "", "", "handlep__V->"));
@@ -520,8 +516,8 @@ class ProtectVisitor final : public VNVisitor {
         }
     }
 
-    static bool checkIfClockExists(const AstNodeModule* modp) {
-        for (const AstNode* stmtp = modp->stmtsp(); stmtp; stmtp = stmtp->nextp()) {
+    static bool checkIfClockExists(AstNodeModule* modp) {
+        for (AstNode* stmtp = modp->stmtsp(); stmtp; stmtp = stmtp->nextp()) {
             if (const AstVar* const varp = VN_CAST(stmtp, Var)) {
                 if (varp->direction() == VDirection::INPUT
                     && (varp->isUsedClock()
@@ -545,6 +541,6 @@ public:
 // ProtectLib class functions
 
 void V3ProtectLib::protect() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     ProtectVisitor{v3Global.rootp()};
 }

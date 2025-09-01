@@ -28,10 +28,10 @@ endmodule
 
 // module unused - no warning for any of statements inside
 module unused(input clk);
-   bit unused_variable_while;
-   bit unused_variable_do_while;
-   bit unused_variable_for;
-   const bit always_false = 0;
+   reg unused_variable_while = 0;
+   reg unused_variable_do_while = 0;
+   reg unused_variable_for = 0;
+   const logic always_false = 0;
 
    always @(posedge clk) begin
       while(unused_variable_while) begin
@@ -62,7 +62,7 @@ module unused(input clk);
    end
 endmodule
 
-// no warning for loops under parameterized module
+// no warning for loops under parametrized module
 module parametrized_initial #(parameter REPETITIONS = 0);
    int prints_while = 0;
    int prints_do_while = 0;
@@ -228,21 +228,21 @@ module if_with_param;
 
    initial begin
       if (ZERO_PARAM) begin
-         // loop under false parameterized if - no warning
+         // loop under false parametrized if - no warning
          int prints = 0;
          while(prints < 5) begin
             prints++;
          end
          $write("Prints %d\n", prints);
       end else if (!ONE_PARAM) begin
-         // loop under false parameterized if - no warning
+         // loop under false parametrized if - no warning
          int prints = 0;
          while(prints < 5) begin
             prints++;
          end
          $write("Prints %d\n", prints);
       end else begin
-         // loop under true parameterized if - no warning
+         // loop under true parametrized if - no warning
          int prints = 0;
          while(prints < 5) begin
             prints++;
@@ -259,7 +259,7 @@ module clock_init_race(input clk, input reset_l);
    logic m_3_reset = reset_l;
    assign m_2_clock = clk;
    assign m_3_clock = clk;
-   int m_3_counter;
+   int m_3_counter = 0;
    initial begin
       $write("*-* START TEST *-*\n");
    end
@@ -271,7 +271,7 @@ module clock_init_race(input clk, input reset_l);
       end
    end
 
-   bit m_2_ticked;
+   reg m_2_ticked = 1'b0;
    always @(posedge m_2_clock) if (!m_2_reset) begin
       m_2_ticked = 1'b1;
    end

@@ -35,8 +35,7 @@ class SampledVisitor final : public VNVisitor {
     //  AstVarScope::user1()  -> AstVarScope*. The VarScope that stores sampled value
     //  AstVarRef::user1()    -> bool. Whether already converted
     const VNUser1InUse m_user1InUse;
-
-    // STATE - for current visit position (use VL_RESTORER)
+    // STATE
     AstScope* m_scopep = nullptr;  // Current scope
     bool m_inSampled = false;  // True inside a sampled expression
 
@@ -57,7 +56,7 @@ class SampledVisitor final : public VNVisitor {
         m_scopep->addVarsp(newvscp);
         // At the top of _eval, assign them (use valuep here as temporary storage during V3Sched)
         newvarp->valuep(new AstVarRef{flp, vscp, VAccess::READ});
-        UINFO(4, "New Sampled: " << newvscp);
+        UINFO(4, "New Sampled: " << newvscp << endl);
         return newvscp;
     }
 
@@ -100,7 +99,7 @@ public:
 // Sampled class functions
 
 void V3Sampled::sampledAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { SampledVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("sampled", 0, dumpTreeEitherLevel() >= 3);
 }

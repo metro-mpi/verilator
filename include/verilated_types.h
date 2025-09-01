@@ -495,11 +495,11 @@ public:
 private:
     // MEMBERS
     Deque m_deque;  // State of the assoc array
-    T_Value m_defaultValue{};  // Default value
+    T_Value m_defaultValue;  // Default value
 
 public:
     // CONSTRUCTORS
-    // cppcheck-suppress uninitMemberVar // m_defaultValue isn't defaulted, caller must
+    // m_defaultValue isn't defaulted. Caller's constructor must do it.
     VlQueue() = default;
     ~VlQueue() = default;
     VlQueue(const VlQueue&) = default;
@@ -621,8 +621,11 @@ public:
     T_Value& atWriteAppend(int32_t index) {
         // cppcheck-suppress variableScope
         static thread_local T_Value t_throwAway;
-        if (index == m_deque.size()) push_back(atDefault());
         if (VL_UNLIKELY(index < 0 || index >= m_deque.size())) {
+            if (index == m_deque.size()) {
+                push_back(atDefault());
+                return m_deque[index];
+            }
             t_throwAway = atDefault();
             return t_throwAway;
         }
@@ -914,7 +917,7 @@ public:
             out += comma + VL_TO_STRING(i);
             comma = ", ";
         }
-        return out + "}";
+        return out + "} ";
     }
 };
 
@@ -966,7 +969,6 @@ public:
 
     // Size of array. Verilog: function int size(), or int num()
     int size() const { return m_map.size(); }
-    bool empty() const { return m_map.empty(); }
     // Clear array. Verilog: function void delete([input index])
     void clear() { m_map.clear(); }
     void erase(const T_Key& index) { m_map.erase(index); }
@@ -1253,7 +1255,7 @@ public:
             comma = ", ";
         }
         // Default not printed - maybe random init data
-        return out + "}";
+        return out + "} ";
     }
 };
 
@@ -1263,7 +1265,7 @@ std::string VL_TO_STRING(const VlAssocArray<T_Key, T_Value>& obj) {
 }
 
 template <typename T_Key, typename T_Value>
-struct VlContainsCustomStruct<VlAssocArray<T_Key, T_Value>> : VlContainsCustomStruct<T_Value> {};
+struct VlContainsCustomStruct<VlAssocArray<T_Key, T_Value>> : VlContainsCustomStruct<T_Key> {};
 
 template <typename T_Key, typename T_Value>
 void VL_READMEM_N(bool hex, int bits, const std::string& filename,
@@ -1310,9 +1312,6 @@ class VlUnpacked final {
     using Unpacked = T_Value[N_Depth];
 
 public:
-    template <typename T_Func>
-    using WithFuncReturnType = decltype(std::declval<T_Func>()(0, std::declval<T_Value>()));
-
     // MEMBERS
     // This should be the only data member, otherwise generated static initializers need updating
     Unpacked m_storage;  // Contents of the unpacked array
@@ -1332,11 +1331,6 @@ public:
     const WData* data() const { return &m_storage[0]; }
 
     constexpr std::size_t size() const { return N_Depth; }
-
-    void fill(const T_Value& value) {
-        std::fill(std::begin(m_storage), std::end(m_storage), value);
-    }
-
     // To fit C++14
     template <std::size_t N_CurrentDimension = 0, typename U = T_Value>
     int find_length(int dimension, std::false_type) const {
@@ -1561,63 +1555,6 @@ public:
         return VlQueue<T_Value>::consV(*it);
     }
 
-    T_Value r_sum() const {
-        T_Value out(0);  // Type must have assignment operator
-        for (const auto& i : m_storage) out += i;
-        return out;
-    }
-    template <typename T_Func>
-    T_Value r_sum(T_Func with_func) const {
-        T_Value out(0);  // Type must have assignment operator
-        for (const auto& i : m_storage) out += with_func(0, i);
-        return out;
-    }
-    T_Value r_product() const {
-        T_Value out = T_Value(1);
-        for (const auto& i : m_storage) out *= i;
-        return out;
-    }
-    template <typename T_Func>
-    T_Value r_product(T_Func with_func) const {
-        T_Value out = T_Value(1);
-        for (const auto& i : m_storage) out *= with_func(0, i);
-        return out;
-    }
-    T_Value r_and() const {
-        if (m_storage.empty()) return T_Value(0);  // The big three do it this way
-        T_Value out = ~T_Value(0);
-        for (const auto& i : m_storage) out &= i;
-        return out;
-    }
-    template <typename T_Func>
-    T_Value r_and(T_Func with_func) const {
-        T_Value out = ~T_Value(0);
-        for (const auto& i : m_storage) out &= with_func(0, i);
-        return out;
-    }
-    T_Value r_or() const {
-        T_Value out = T_Value(0);
-        for (const auto& i : m_storage) out |= i;
-        return out;
-    }
-    template <typename T_Func>
-    T_Value r_or(T_Func with_func) const {
-        T_Value out = T_Value(0);
-        for (const auto& i : m_storage) out |= with_func(0, i);
-        return out;
-    }
-    T_Value r_xor() const {
-        T_Value out = T_Value(0);
-        for (const auto& i : m_storage) out ^= i;
-        return out;
-    }
-    template <typename T_Func>
-    T_Value r_xor(T_Func with_func) const {
-        T_Value out = T_Value(0);
-        for (const auto& i : m_storage) out ^= with_func(0, i);
-        return out;
-    }
-
     // Dumping. Verilog: str = $sformatf("%p", assoc)
     std::string to_string() const {
         std::string out = "'{";
@@ -1626,7 +1563,7 @@ public:
             out += comma + VL_TO_STRING(m_storage[i]);
             comma = ", ";
         }
-        return out + "}";
+        return out + "} ";
     }
 
 private:
@@ -1660,8 +1597,8 @@ std::string VL_TO_STRING(const VlUnpacked<T_Value, N_Depth>& obj) {
     return obj.to_string();
 }
 
-template <typename T_Value, std::size_t N_Depth>
-struct VlContainsCustomStruct<VlUnpacked<T_Value, N_Depth>> : VlContainsCustomStruct<T_Value> {};
+template <typename T, int N>
+struct VlContainsCustomStruct<VlUnpacked<T, N>> : VlContainsCustomStruct<T> {};
 
 //===================================================================
 // Helper to apply the given indices to a target expression

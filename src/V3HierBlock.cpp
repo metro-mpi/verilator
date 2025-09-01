@@ -38,9 +38,9 @@
 // Here is more detailed internal process.
 // 1) Parser adds VPragmaType::HIER_BLOCK of AstPragma to modules
 //    that are marked with /*verilator hier_block*/ metacomment in Verilator run a).
-// 2) If module type parameters are present, V3Control marks hier param modules
+// 2) If module type parameters are present, V3Config marks hier param modules
 // (marked with hier_params verilator config pragma) as modp->hierParams(true).
-// This is done in run b), de-parameterized modules are mapped with their params one-to-one.
+// This is done in run b), de-parametrized modules are mapped with their params one-to-one.
 // 3) AstModule with HIER_BLOCK pragma is marked modp->hierBlock(true)
 //    in V3LinkResolve.cpp during run a).
 // 4) In V3LinkCells.cpp, the following things are done during run b) and c).
@@ -56,8 +56,8 @@
 // 5) In V3LinkDot.cpp,
 //    5-1) Dotted access across hierarchical block boundary is checked. Currently hierarchical
 //    block references are not supported.
-//    5-2) If present, parameters in hier params module replace parameter values of
-//    de-parameterized module in run b).
+//    5-2) If present, parameters in hier params module replace parameter values of de-parametrized
+//    module in run b).
 // 6) In V3Dead.cpp, some parameters of parameterized modules are protected not to be deleted even
 //    if the parameter is not referred. This protection is necessary to match step 6) below.
 // 7) In V3Param.cpp, use --lib-create wrapper of the parameterized module made in b) and c).
@@ -82,13 +82,13 @@
 //      filename    :Name of a hierarchical parameters file
 //
 //      Added in a), used for b).
-//      Each de-parameterized module version has exactly one hier params file specified.
+//      Each de-parametrized module version has exactly one hier params file specified.
 
 #include "V3PchAstNoMT.h"  // VL_MT_DISABLED_CODE_UNIT
 
 #include "V3HierBlock.h"
 
-#include "V3Control.h"
+#include "V3Config.h"
 #include "V3EmitV.h"
 #include "V3File.h"
 #include "V3Os.h"
@@ -116,11 +116,12 @@ static void V3HierWriteCommonInputs(const V3HierBlock* hblockp, std::ostream* of
     if (hblockp) topModuleFile = hblockp->vFileIfNecessary();
     if (!forCMake) {
         if (!topModuleFile.empty()) *of << topModuleFile << "\n";
-        for (const auto& i : v3Global.opt.vFiles()) *of << i.filename() << "\n";
+        const V3StringList& vFiles = v3Global.opt.vFiles();
+        for (const string& i : vFiles) *of << i << "\n";
     }
-    for (const auto& i : v3Global.opt.libraryFiles()) {
-        if (V3Os::filenameRealPath(i.filename()) != topModuleFile)
-            *of << "-v " << i.filename() << "\n";
+    const V3StringSet& libraryFiles = v3Global.opt.libraryFiles();
+    for (const string& i : libraryFiles) {
+        if (V3Os::filenameRealPath(i) != topModuleFile) *of << "-v " << i << "\n";
     }
 }
 
@@ -129,7 +130,7 @@ static void V3HierWriteCommonInputs(const V3HierBlock* hblockp, std::ostream* of
 V3HierBlock::StrGParams V3HierBlock::stringifyParams(const V3HierBlockParams::GParams& gparams,
                                                      bool forGOption) {
     StrGParams strParams;
-    for (const AstVar* const gparam : gparams) {
+    for (const auto& gparam : gparams) {
         if (const AstConst* const constp = VN_CAST(gparam->valuep(), Const)) {
             string s;
             // Only constant parameter needs to be set to -G because already checked in
@@ -188,11 +189,11 @@ V3StringList V3HierBlock::commandArgs(bool forCMake) const {
     if (!params().gTypeParams().empty())
         opts.push_back(" --hierarchical-params-file " + typeParametersFilename());
 
-    const int blockThreads = V3Control::getHierWorkers(m_modp->origName());
+    const int blockThreads = V3Config::getHierWorkers(m_modp->origName());
     if (blockThreads > 1) {
         if (hasParent()) {
-            V3Control::getHierWorkersFileLine(m_modp->origName())
-                ->v3warn(E_UNSUPPORTED, "Specifying workers for nested hierarchical blocks");
+            V3Config::getHierWorkersFileLine()->v3warn(
+                E_UNSUPPORTED, "Specifying workers for nested hierarchical blocks");
         } else {
             if (v3Global.opt.threads() < blockThreads) {
                 m_modp->v3error("Hierarchical blocks cannot be scheduled on more threads than in "
@@ -250,9 +251,9 @@ string V3HierBlock::hierGeneratedFilenames(bool withDir) const {
 
 string V3HierBlock::vFileIfNecessary() const {
     string filename = V3Os::filenameRealPath(m_modp->fileline()->filename());
-    for (const auto& v : v3Global.opt.vFiles()) {
+    for (const string& v : v3Global.opt.vFiles()) {
         // Already listed in vFiles, so no need to add the file.
-        if (filename == V3Os::filenameRealPath(v.filename())) return "";
+        if (filename == V3Os::filenameRealPath(v)) return "";
     }
     return filename;
 }
@@ -262,7 +263,7 @@ void V3HierBlock::writeCommandArgsFile(bool forCMake) const {
     *of << "--cc\n";
 
     if (!forCMake) {
-        for (const V3HierBlock* const hierblockp : m_children) {
+        for (const auto& hierblockp : m_children) {
             *of << v3Global.opt.makeDir() << "/" << hierblockp->hierWrapperFilename(true) << "\n";
         }
         *of << "-Mdir " << v3Global.opt.makeDir() << "/" << hierPrefix() << " \n";
@@ -271,9 +272,7 @@ void V3HierBlock::writeCommandArgsFile(bool forCMake) const {
     const V3StringList& commandOpts = commandArgs(false);
     for (const string& opt : commandOpts) *of << opt << "\n";
     *of << hierBlockArgs().front() << "\n";
-    for (const V3HierBlock* const hierblockp : m_children) {
-        *of << hierblockp->hierBlockArgs().front() << "\n";
-    }
+    for (const auto& hierblockp : m_children) *of << hierblockp->hierBlockArgs().front() << "\n";
     *of << v3Global.opt.allArgsStringForHierBlock(false) << "\n";
 }
 
@@ -294,8 +293,8 @@ void V3HierBlock::writeParametersFile() const {
     *of << "module " << moduleName << ";\n";
     for (AstParamTypeDType* const gparam : m_params.gTypeParams()) {
         AstTypedef* tdefp
-            = new AstTypedef{new FileLine{FileLine::builtInFilename()}, gparam->name(), nullptr,
-                             VFlagChildDType{}, gparam->skipRefp()->cloneTreePure(true)};
+            = new AstTypedef(new FileLine{FileLine::builtInFilename()}, gparam->name(), nullptr,
+                             VFlagChildDType{}, gparam->skipRefp()->cloneTreePure(true));
         V3EmitV::verilogForTree(tdefp, *of);
         VL_DO_DANGLING(tdefp->deleteTree(), tdefp);
     }
@@ -323,7 +322,8 @@ class HierBlockUsageCollectVisitor final : public VNVisitorConst {
         // Don't visit twice
         if (nodep->user1SetOnce()) return;
         UINFO(5, "Checking " << nodep->prettyNameQ() << " from "
-                             << (m_hierBlockp ? m_hierBlockp->prettyNameQ() : "null"s));
+                             << (m_hierBlockp ? m_hierBlockp->prettyNameQ() : "null"s)
+                             << std::endl);
         VL_RESTORER(m_modp);
         AstModule* const prevHierBlockp = m_hierBlockp;
         ModuleSet prevReferred;
@@ -382,8 +382,8 @@ void V3HierBlockPlan::add(const AstNodeModule* modp, const V3HierBlockParams& pa
     if (pair.second) {
         V3HierBlock* hblockp = new V3HierBlock{modp, params};
         UINFO(3, "Add " << modp->prettyNameQ() << " with " << params.gparams().size()
-                        << " parameters and " << params.gTypeParams().size()
-                        << " type parameters");
+                        << " parameters and " << params.gTypeParams().size() << " type parameters"
+                        << std::endl);
         pair.first->second = hblockp;
     }
 }
@@ -394,7 +394,7 @@ void V3HierBlockPlan::registerUsage(const AstNodeModule* parentp, const AstNodeM
     const iterator child = m_blocks.find(childp);
     if (child != m_blocks.end()) {
         UINFO(3, "Found usage relation " << parentp->prettyNameQ() << " uses "
-                                         << childp->prettyNameQ());
+                                         << childp->prettyNameQ() << std::endl);
         parent->second->addChild(child->second);
         child->second->addParent(parent->second);
     }

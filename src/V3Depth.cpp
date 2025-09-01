@@ -36,7 +36,7 @@ VL_DEFINE_DEBUG_FUNCTIONS;
 class DepthVisitor final : public VNVisitor {
     // NODE STATE
 
-    // STATE - for current visit position (use VL_RESTORER)
+    // STATE
     AstCFunc* m_cfuncp = nullptr;  // Current block
     AstMTaskBody* m_mtaskbodyp = nullptr;  // Current mtaskbody
     AstNode* m_stmtp = nullptr;  // Current statement
@@ -47,8 +47,8 @@ class DepthVisitor final : public VNVisitor {
     // METHODS
 
     void createDeepTemp(AstNodeExpr* nodep) {
-        UINFO(6, "  Deep  " << nodep);
-        // UINFOTREE(9, nodep, "", "deep");
+        UINFO(6, "  Deep  " << nodep << endl);
+        // if (debug() >= 9) nodep->dumpTree("-  deep: ");
         AstVar* const varp = new AstVar{nodep->fileline(), VVarType::STMTTEMP,
                                         m_tempNames.get(nodep), nodep->dtypep()};
         if (m_cfuncp) {
@@ -71,8 +71,6 @@ class DepthVisitor final : public VNVisitor {
     void visit(AstCFunc* nodep) override {
         VL_RESTORER(m_cfuncp);
         VL_RESTORER(m_mtaskbodyp);
-        VL_RESTORER(m_depth);
-        VL_RESTORER(m_maxdepth);
         m_cfuncp = nodep;
         m_mtaskbodyp = nullptr;
         m_depth = 0;
@@ -83,8 +81,6 @@ class DepthVisitor final : public VNVisitor {
     void visit(AstMTaskBody* nodep) override {
         VL_RESTORER(m_cfuncp);
         VL_RESTORER(m_mtaskbodyp);
-        VL_RESTORER(m_depth);
-        VL_RESTORER(m_maxdepth);
         m_cfuncp = nullptr;
         m_mtaskbodyp = nodep;
         m_depth = 0;
@@ -94,8 +90,6 @@ class DepthVisitor final : public VNVisitor {
     }
     void visitStmt(AstNodeStmt* nodep) {
         VL_RESTORER(m_stmtp);
-        VL_RESTORER(m_depth);
-        VL_RESTORER(m_maxdepth);
         m_stmtp = nodep;
         m_depth = 0;
         m_maxdepth = 0;
@@ -127,7 +121,7 @@ class DepthVisitor final : public VNVisitor {
     void needNonStaticFunc(AstNode* nodep) {
         UASSERT_OBJ(m_cfuncp, nodep, "Non-static accessor not under a function");
         if (m_cfuncp->isStatic()) {
-            UINFO(5, "Mark non-public due to " << nodep);
+            UINFO(5, "Mark non-public due to " << nodep << endl);
             m_cfuncp->isStatic(false);
         }
     }
@@ -158,7 +152,7 @@ public:
 // Depth class functions
 
 void V3Depth::depthAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DepthVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("depth", 0, dumpTreeEitherLevel() >= 6);
 }

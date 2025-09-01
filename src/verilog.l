@@ -270,7 +270,6 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   "$rewind"             { FL; return yD_REWIND; }
   "$rtoi"               { FL; return yD_RTOI; }
   "$sampled"            { FL; return yD_SAMPLED; }
-  "$sdf_annotate"       { FL; return yD_SDF_ANNOTATE; }
   "$setup"              { FL; return yaTIMINGSPEC; }
   "$setuphold"          { FL; return yD_SETUPHOLD; }
   "$sformat"            { FL; return yD_SFORMAT; }
@@ -442,19 +441,18 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   /* Verilog 2001 Config */
 <V01C,V05,VA5,S05,S09,S12,S17,S23,SAX>{
   /*     Generic unsupported keywords */
-  "cell"                { FL; return yCELL; }
-  "config"              { FL; return yCONFIG; }
-  "design"              { FL; return yDESIGN; }
-  "endconfig"           { FL; return yENDCONFIG; }
-  "incdir"              { FL; ERROR_RSVD_WORD("Verilog 2001-config lib.map"); }
-  "include"             { FL; yylval.fl->v3warn(E_UNSUPPORTED, "Unsupported: Verilog 2001-config lib.map reserved word not implemented: 'include'\n"
-                                                << yylval.fl->warnMore() << "... Suggest unless in a lib.map file,"
-                                                " want `include instead");
+  "cell"                { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "config"              { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "design"              { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "endconfig"           { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "incdir"              { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "include"             { FL; yylval.fl->v3warn(E_UNSUPPORTED, "Unsupported: Verilog 2001-config reserved word not implemented;"
+                                                " suggest you want `include instead: '" << yytext << "'");
                           FL_BRK; }
-  "instance"            { FL; return yINSTANCE; }
-  "liblist"             { FL; return yLIBLIST; }
-  "library"             { FL; ERROR_RSVD_WORD("Verilog 2001-config lib.map"); }
-  "use"                 { FL; return yUSE; }
+  "instance"            { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "liblist"             { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "library"             { ERROR_RSVD_WORD("Verilog 2001-config"); }
+  "use"                 { ERROR_RSVD_WORD("Verilog 2001-config"); }
 }
 
   /* Verilog 2005 */
@@ -471,16 +469,13 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   "$bits"               { FL; return yD_BITS; }
   "$changed"            { FL; return yD_CHANGED; }
   "$changed_gclk"       { FL; return yD_CHANGED_GCLK; }
-  "$changing_gclk"      { FL; return yD_CHANGING_GCLK; }
   "$countbits"          { FL; return yD_COUNTBITS; }
   "$countones"          { FL; return yD_COUNTONES; }
   "$dimensions"         { FL; return yD_DIMENSIONS; }
   "$error"              { FL; return yD_ERROR; }
-  "$falling_gclk"       { FL; return yD_FALLING_GCLK; }
   "$fatal"              { FL; return yD_FATAL; }
   "$fell"               { FL; return yD_FELL; }
   "$fell_gclk"          { FL; return yD_FELL_GCLK; }
-  "$future_gclk"        { FL; return yD_FUTURE_GCLK; }
   "$high"               { FL; return yD_HIGH; }
   "$increment"          { FL; return yD_INCREMENT; }
   "$inferred_disable"   { FL; return yD_INFERRED_DISABLE; }
@@ -492,16 +487,13 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   "$onehot"             { FL; return yD_ONEHOT; }
   "$onehot0"            { FL; return yD_ONEHOT0; }
   "$past"               { FL; return yD_PAST; }
-  "$past_gclk"          { FL; return yD_PAST_GCLK; }
   "$right"              { FL; return yD_RIGHT; }
-  "$rising_gclk"        { FL; return yD_RISING_GCLK; }
   "$root"               { FL; return yD_ROOT; }
   "$rose"               { FL; return yD_ROSE; }
   "$rose_gclk"          { FL; return yD_ROSE_GCLK; }
   "$size"               { FL; return yD_SIZE; }
   "$stable"             { FL; return yD_STABLE; }
   "$stable_gclk"        { FL; return yD_STABLE_GCLK; }
-  "$steady_gclk"        { FL; return yD_STEADY_GCLK; }
   "$unpacked_dimensions" { FL; return yD_UNPACKED_DIMENSIONS; }
   "$warning"            { FL; return yD_WARNING; }
   /*     SV2005 Keywords */
@@ -589,7 +581,7 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   "string"              { FL; return ySTRING; }
   "struct"              { FL; return ySTRUCT; }
   "super"               { FL; return ySUPER; }
-  "tagged"              { FL; return yTAGGED; }
+  "tagged"              { ERROR_RSVD_WORD("SystemVerilog 2005"); }
   "this"                { FL; return yTHIS; }
   "throughout"          { FL; return yTHROUGHOUT; }
   "timeprecision"       { FL; return yTIMEPRECISION; }
@@ -654,9 +646,9 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   /* Default PLI rule */
 <V95,V01NC,V01C,V05,VA5,S05,S09,S12,S17,S23,SAX>{
   "$"[a-zA-Z0-9_$]+     { const string str (yytext, yyleng);
-                          yylval.strp = PARSEP->newString(AstNode::encodeName(str));
-                          FL; return yaD_PLI;
-                        }
+                                  yylval.strp = PARSEP->newString(AstNode::encodeName(str));
+                                  FL; return yaD_PLI;
+                                }
 }
 
   /************************************************************************/
@@ -903,7 +895,7 @@ vnum    {vnum1}|{vnum2}|{vnum3}|{vnum4}|{vnum5}
   "@@"                  { FL; return yP_ATAT; }
   "::"                  { FL; return yP_COLONCOLON; }
   ":="                  { FL; return yP_COLONEQ; }
-  ":/"/[^\/\*]          { FL; return yP_COLONDIV; }  /* : then comment is not ":/" */
+  ":/"[^\/\*]           { FL; return yP_COLONDIV; }  /* : then comment is not ":/" */
   "|->"                 { FL; return yP_ORMINUSGT; }
   "|=>"                 { FL; return yP_OREQGT; }
   /* Some simulators allow whitespace here. Grr */

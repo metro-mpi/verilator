@@ -5,12 +5,12 @@
 // SPDX-License-Identifier: CC0-1.0
 
 class Base1;
-  extern task nodef();
-  extern task nodef();  // <--- Error: duplicate
+   extern task nodef();
+   extern task nodef();  // duplicate
 endclass
 
-task Base1::noproto();  // <--- Error: Missing prototype
+task Base1::noproto();  // no such prototype
 endtask
 
-module t;
+module t (/*AUTOARG*/);
 endmodule

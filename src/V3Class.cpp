@@ -40,7 +40,7 @@ class ClassVisitor final : public VNVisitor {
     const VNUser1InUse m_inuser1;
 
     // MEMBERS
-    string m_prefix;  // String prefix to add to class name based on hier
+    string m_prefix;  // String prefix to add to name based on hier
     V3UniqueNames m_names;  // For unique naming of structs and unions
     AstNodeModule* m_modp = nullptr;  // Current module
     AstNodeModule* m_classPackagep = nullptr;  // Package moving into
@@ -57,18 +57,28 @@ class ClassVisitor final : public VNVisitor {
 
     // METHODS
 
-    void recurseImplements(AstClass* nodep) {
-        // In SystemVerilog, we have two inheritance chains:
-        // - extends of concrete clasess: mapped to non-virtual C++ inheritance
-        //   as there is only single ancestor allowed
-        // - implements of concrete classes / extends of interface classes: mapped
-        //   to virtual inheritance to allow diamond patterns with multiple ancestors
-        if (nodep->useVirtualPublic()) return;  // Short-circuit to exit diamond cycles
-        if (nodep->isInterfaceClass()) { nodep->useVirtualPublic(true); }
+    bool recurseImplements(AstClass* nodep, bool setit) {
+        // Returns true to set useVirtualPublic().
+        // If there's an implements of an interface class then we have
+        // multiple classes that point to same object, that need same
+        // VlClass (the diamond problem). C++ will require we use 'virtual
+        // public' for VlClass.  So, we need the interface class, and all
+        // classes above, and any below using any implements to use
+        // 'virtual public' via useVirtualPublic().
+        if (nodep->useVirtualPublic()) return true;  // Short-circuit
+        if (nodep->isInterfaceClass()) setit = true;
         for (const AstClassExtends* extp = nodep->extendsp(); extp;
              extp = VN_AS(extp->nextp(), ClassExtends)) {
-            recurseImplements(extp->classp());
+            if (recurseImplements(extp->classp(), setit)) setit = true;
         }
+        if (setit) {
+            nodep->useVirtualPublic(true);
+            for (const AstClassExtends* extp = nodep->extendsp(); extp;
+                 extp = VN_AS(extp->nextp(), ClassExtends)) {
+                (void)recurseImplements(extp->classp(), true);
+            }
+        }
+        return setit;
     }
 
     // VISITORS
@@ -79,11 +89,11 @@ class ClassVisitor final : public VNVisitor {
         nodep->name(m_prefix + nodep->name());
         nodep->unlinkFrBack();
         v3Global.rootp()->addModulesp(nodep);
-        recurseImplements(nodep);
+        (void)recurseImplements(nodep, false);
         // Make containing package
         // Note origName is the same as the class origName so errors look correct
         AstClassPackage* const packagep
-            = new AstClassPackage{nodep->fileline(), nodep->origName(), nodep->libname()};
+            = new AstClassPackage{nodep->fileline(), nodep->origName()};
         packagep->name(nodep->name() + "__Vclpkg");
         nodep->editCountInc();
         nodep->classOrPackagep(packagep);
@@ -128,7 +138,6 @@ class ClassVisitor final : public VNVisitor {
     }
     void visit(AstNodeModule* nodep) override {
         // Visit for NodeModules that are not AstClass (AstClass is-a AstNodeModule)
-        // Classes are always under a Package (perhaps $unit) or a module
         VL_RESTORER(m_prefix);
         VL_RESTORER(m_modp);
         m_modp = nodep;
@@ -175,7 +184,7 @@ class ClassVisitor final : public VNVisitor {
         //    m_toScopeMoves.emplace_back(nodep, m_classScopep);
         //}
     }
-    void visit(AstNodeCoverDecl* nodep) override {
+    void visit(AstCoverDecl* nodep) override {
         // Need to declare coverage in package, where we have access to symbol table
         iterateChildren(nodep);
         if (m_classPackagep) m_classPackagep->addStmtsp(nodep->unlinkFrBack());
@@ -234,7 +243,7 @@ public:
         for (auto moved : m_toScopeMoves) {
             AstNode* const nodep = moved.first;
             AstScope* const scopep = moved.second;
-            UINFO(9, "moving " << nodep << " to " << scopep);
+            UINFO(9, "moving " << nodep << " to " << scopep << endl);
             if (VN_IS(nodep, NodeFTask)) {
                 scopep->addBlocksp(nodep->unlinkFrBack());
             } else if (VN_IS(nodep, Var)) {
@@ -252,12 +261,12 @@ public:
         for (auto moved : m_toPackageMoves) {
             AstNode* const nodep = moved.first;
             AstNodeModule* const modp = moved.second;
-            UINFO(9, "moving " << nodep << " to " << modp);
+            UINFO(9, "moving " << nodep << " to " << modp << endl);
             nodep->unlinkFrBack();
             modp->addStmtsp(nodep);
         }
         // BFS to mark public typedefs.
-        std::set<const AstNodeUOrStructDType*> pubStrDtypeps;
+        std::set<AstNodeUOrStructDType*> pubStrDtypeps;
         while (!m_pubStrDtypeps.empty()) {
             AstNodeUOrStructDType* const dtypep = m_pubStrDtypeps.front();
             m_pubStrDtypeps.pop();
@@ -270,8 +279,7 @@ public:
             }
         }
         for (AstTypedef* typedefp : m_typedefps) {
-            const AstNodeUOrStructDType* const sdtypep
-                = VN_AS(typedefp->dtypep(), NodeUOrStructDType);
+            AstNodeUOrStructDType* const sdtypep = VN_AS(typedefp->dtypep(), NodeUOrStructDType);
             if (pubStrDtypeps.count(sdtypep)) typedefp->attrPublic(true);
         }
         // Clear package pointer of non-public packed struct / union type, which will never be
@@ -286,7 +294,7 @@ public:
 // Class class functions
 
 void V3Class::classAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { ClassVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("class", 0, dumpTreeEitherLevel() >= 3);
 }

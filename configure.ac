@@ -7,11 +7,10 @@
 
 # When releasing, also update header of Changes file, and CMakeLists.txt,
 # and commit using "devel release" or "Version bump" message
-# Then 'make distclean' 'autoconf' './configure' 'make' 'make test'
 # Then 'make maintainer-dist'
 #AC_INIT([Verilator],[#.### YYYY-MM-DD])
 #AC_INIT([Verilator],[#.### devel])
-AC_INIT([Verilator],[5.041 devel],
+AC_INIT([Verilator],[5.036 2025-04-27],
         [https://verilator.org],
         [verilator],[https://verilator.org])
 
@@ -69,7 +68,6 @@ AC_ARG_ENABLE([tcmalloc],
                 *)   AC_MSG_ERROR([bad value '${enableval}' for --enable-tcmalloc]) ;;
                esac],
               [CFG_WITH_TCMALLOC=check;])
-AC_SUBST(CFG_WITH_TCMALLOC)
 AC_MSG_RESULT($CFG_WITH_TCMALLOC)
 
 # Flag to enable coverage build
@@ -179,7 +177,7 @@ AC_PROG_INSTALL
 
 AC_LANG_PUSH(C++)
 CFG_CXX_VERSION=`$CXX --version | head -1`
-AC_MSG_RESULT([compiler version... $CXX --version = $CFG_CXX_VERSION])
+AC_MSG_RESULT([compiler $CXX --version = $CFG_CXX_VERSION])
 AC_SUBST(CFG_CXX_VERSION)
 
 AC_MSG_CHECKING([that C++ compiler can compile simple program])
@@ -434,10 +432,10 @@ AC_SUBST(HAVE_COROUTINES)
 
 # Flags for compiling Verilator internals including parser always
 _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Qunused-arguments)
-_MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Wno-shadow)
-_MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Wno-unused-parameter)
 _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Xclang -fno-pch-timestamp)
 _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-faligned-new)
+_MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Wno-unused-parameter)
+_MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-Wno-shadow)
 AC_SUBST(CFG_CXXFLAGS_SRC)
 
 # Flags for compiling Verilator parser always (in addition to above CFG_CXXFLAGS_SRC)
@@ -478,7 +476,6 @@ m4_foreach([cflag],[
         [-Wno-bool-operation],
         [-Wno-c++11-narrowing],
         [-Wno-constant-logical-operand],
-        [-Wno-int-in-bool-context],
         [-Wno-non-pod-varargs],
         [-Wno-parentheses-equality],
         [-Wno-shadow],
@@ -549,12 +546,10 @@ _MY_LDLIBS_CHECK_IFELSE(
     _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-fno-builtin-calloc)
     _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-fno-builtin-realloc)
     _MY_CXX_CHECK_OPT(CFG_CXXFLAGS_SRC,-fno-builtin-free)
-    AC_DEFINE([HAVE_TCMALLOC],[1],[Defined if have tcmalloc])
    fi],
   [if test "$CFG_WITH_TCMALLOC" = "yes"; then
     AC_MSG_ERROR([--enable-tcmalloc was given but test for ${LTCMALLOC} failed])
    fi])
-AC_SUBST(HAVE_TCMALLOC)
 AC_SUBST(CFG_LIBS)
 
 # Need C++14 at least

@@ -87,7 +87,7 @@ protected:
     bool preproc(FileLine* fl, const string& modname, VInFilter* filterp, V3ParseImp* parsep,
                  const string& errmsg) {  // "" for no error
         // Preprocess the given module, putting output in vppFilename
-        UINFO(1, "Preprocessing " << modname);
+        UINFO(1, "Preprocessing " << modname << endl);
 
         // Preprocess
         s_filterp = filterp;
@@ -100,7 +100,7 @@ protected:
             // from the V3LangCode to the various Lex BEGIN states. The language
             // of this source file is updated here, in case there have been any
             // intervening +<lang>ext+ options since it was first encountered.
-            const FileLine* const modfileline = new FileLine{modfilename};
+            FileLine* const modfileline = new FileLine{modfilename};
             modfileline->language(v3Global.opt.fileLanguage(modfilename));
             V3Parse::ppPushText(
                 parsep, ("`begin_keywords \""s + modfileline->language().ascii() + "\"\n"));
@@ -140,7 +140,7 @@ private:
         }
         if (filename == "") return "";  // Not found
 
-        UINFO(2, "    Reading " << filename);
+        UINFO(2, "    Reading " << filename << endl);
         s_preprocp->openFile(fl, filterp, filename);
         return filename;
     }

@@ -17,11 +17,10 @@ Waivers = [
     '+verilator+prof+threads+file+',  # Deprecated
     '+verilator+prof+threads+start+',  # Deprecated
     '+verilator+prof+threads+window+',  # Deprecated
-    '-fdfg-synthesize-all',  # Mostly used for testing
     '-fno-',  # Documented differently
     '-no-lineno',  # Deprecated
     '-no-order-clock-delay',  # Deprecated
-    '-prof-threads',  # Deprecated
+    '-prof-threads',  # Deprecated)
 ]
 
 

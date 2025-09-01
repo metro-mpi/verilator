@@ -19,7 +19,6 @@ module t;
    localparam P6 = f_return(P4);
    localparam P3 = 3;
    localparam P128 = f_package();
-   localparam [15:0] PSEL = f_concat_sel(16'h4321);
 
    typedef struct packed {
       logic [7:0] data;
@@ -51,7 +50,6 @@ module t;
       if (bigparam.second != 1'b0) $stop;
       if (bigparam.data != 32'hfff12fff) $stop;
       if (P128 != 128) $stop;
-      if (PSEL != 16'h1234) $stop;
       $write("*-* All Finished *-*\n");
       $finish;
    end
@@ -129,11 +127,4 @@ module t;
       result.second = second;
       return result;
    endfunction
-
-   function [15:0] f_concat_sel(input [15:0] in);
-      reg [3:0] tmp1, tmp2, tmp3, tmp4;
-      {tmp4, tmp3, tmp2, tmp1} = in;
-      f_concat_sel = {tmp1, tmp2, tmp3, tmp4};
-   endfunction
-
 endmodule

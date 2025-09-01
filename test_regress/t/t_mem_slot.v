@@ -13,9 +13,9 @@ module t_mem_slot (Clk, SlotIdx, BitToChange, BitVal, SlotToReturn, OutputVal);
    input        BitToChange;
    input        BitVal;
    input  [1:0] SlotToReturn;
-   output bit [1:0] OutputVal;
+   output reg [1:0] OutputVal;
 
-   bit    [1:0] Array[2:0];
+   reg    [1:0] Array[2:0];
 
    always @(posedge Clk)
    begin

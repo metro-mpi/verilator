@@ -24,7 +24,7 @@
 
 #include "V3TraceDecl.h"
 
-#include "V3Control.h"
+#include "V3Config.h"
 #include "V3EmitCBase.h"
 #include "V3Stats.h"
 
@@ -120,11 +120,14 @@ class TraceDeclVisitor final : public VNVisitor {
     // - A sub scope (stored as the cell corresponding to the sub scope)
     // Note: members are non-const to allow copy during sorting
     class TraceEntry final {
-        AstVarScope* m_vscp = nullptr;  // AstVarScope under scope being traced
-        AstCell* m_cellp = nullptr;  // Sub scope (as AstCell) under scope being traced
-        std::string m_path;  // Path to enclosing module in original hierarchy
-        std::string m_name;  // Name of signal/subscope
-        bool m_rootio = false;  // Is part of $rootio, if model at runtime uses name()=""
+        // AstVarScope under scope being traced
+        AstVarScope* m_vscp{nullptr};
+        // Sub scope (as AstCell) under scope being traced
+        AstCell* m_cellp{nullptr};
+        // Path to enclosing module in original hierarchy (non-trivail due to inlining)
+        std::string m_path;
+        // Name of signal/subscope
+        std::string m_name;
 
         void init(const std::string& name) {
             // Compute path in hierarchy and item name
@@ -144,21 +147,12 @@ class TraceDeclVisitor final : public VNVisitor {
             : m_cellp{cellp} {
             init(cellp->name());
         }
-        int operatorCompare(const TraceEntry& b) const {
-            if (rootio() && !b.rootio()) return true;
-            if (!rootio() && b.rootio()) return false;
-            if (const int cmp = path().compare(b.path())) return cmp < 0;
-            if (const int cmp = fileline().operatorCompare(b.fileline())) return cmp < 0;
-            return name() < b.name();
-        }
+
         AstVarScope* vscp() const { return m_vscp; }
         AstCell* cellp() const { return m_cellp; }
         const std::string& path() const { return m_path; }
-        void path(const std::string& path) { m_path = path; }
         const std::string& name() const { return m_name; }
         FileLine& fileline() const { return m_vscp ? *m_vscp->fileline() : *m_cellp->fileline(); }
-        bool rootio() const { return m_rootio; }
-        void rootio(bool flag) { m_rootio = flag; }
     };
     std::vector<TraceEntry> m_entries;  // Trace entries under current scope
     AstVarScope* m_traVscp = nullptr;  // Current AstVarScope we are constructing AstTraceDecls for
@@ -184,7 +178,7 @@ class TraceDeclVisitor final : public VNVisitor {
                 if (!prettyName.empty() && prettyName[0] == '_') return "Leading underscore";
                 if (prettyName.find("._") != string::npos) return "Inlined leading underscore";
             }
-            if (!V3Control::getScopeTraceOn(prettyName)) return "Vlt scope trace_off";
+            if (!V3Config::getScopeTraceOn(prettyName)) return "Vlt scope trace_off";
         }
         return nullptr;
     }
@@ -296,7 +290,7 @@ class TraceDeclVisitor final : public VNVisitor {
 
     void fixupPlaceholders() {
         // Fix up cell initialization placehodlers
-        UINFO(9, "fixupPlaceholders()");
+        UINFO(9, "fixupPlaceholders()\n");
         for (const auto& item : m_cellInitPlaceholders) {
             const AstScope* const parentp = std::get<0>(item);
             const AstCell* const cellp = std::get<1>(item);
@@ -316,7 +310,6 @@ class TraceDeclVisitor final : public VNVisitor {
 
     void removeRedundantPrefixPushPop() {
         for (const auto& pair : m_scopeInitFuncps) {
-            // cppcheck-suppress constVariablePointer
             for (AstCFunc* const funcp : pair.second) {
                 AstNode* prevp = nullptr;
                 AstNode* currp = funcp->stmtsp();
@@ -338,7 +331,7 @@ class TraceDeclVisitor final : public VNVisitor {
         if (!v3Global.opt.debugCheck()) return;
         checkCallsRecurse(funcp);
         if (!m_declUncalledps.empty()) {
-            for (auto tracep : m_declUncalledps) UINFO(0, "-nodep " << tracep);
+            for (auto tracep : m_declUncalledps) UINFO(0, "-nodep " << tracep << "\n");
             (*(m_declUncalledps.begin()))->v3fatalSrc("Created TraceDecl which is never called");
         }
     }
@@ -354,7 +347,7 @@ class TraceDeclVisitor final : public VNVisitor {
 
     // VISITORS
     void visit(AstScope* nodep) override {
-        UINFO(9, "visit " << nodep);
+        UINFO(9, "visit " << nodep << "\n");
         UASSERT_OBJ(!m_currScopep, nodep, "Should not nest");
         UASSERT_OBJ(m_subFuncps.empty(), nodep, "Should not nest");
         UASSERT_OBJ(m_entries.empty(), nodep, "Should not nest");
@@ -374,29 +367,23 @@ class TraceDeclVisitor final : public VNVisitor {
         }
 
         if (!m_entries.empty()) {
-            if (nodep->name() == "TOP") {
-                UINFO(9, " Add $rootio " << nodep);
-                for (TraceEntry& entry : m_entries) {
-                    if (entry.path() == "" && entry.vscp()) entry.rootio(true);
-                }
-            }
-
-            // Sort trace entries, first by if a $root io, then by enclosing instance
-            // (necessary for single traversal of hierarchy during initialization), then
-            // by source location, then by name.
-            std::stable_sort(
-                m_entries.begin(), m_entries.end(),
-                [](const TraceEntry& a, const TraceEntry& b) { return a.operatorCompare(b); });
+            // Sort trace entries, first by enclosing instance (necessary for
+            // single traversal of hierarchy during initialization), then by
+            // source location, then by name.
+            std::stable_sort(m_entries.begin(), m_entries.end(),
+                             [](const TraceEntry& a, const TraceEntry& b) {
+                                 if (const int cmp = a.path().compare(b.path())) return cmp < 0;
+                                 if (const int cmp = a.fileline().operatorCompare(b.fileline()))
+                                     return cmp < 0;
+                                 return a.name() < b.name();
+                             });
 
             // Build trace initialization functions for this AstScope
             FileLine* const flp = nodep->fileline();
             PathAdjustor pathAdjustor{flp, [&](AstNodeStmt* stmtp) { addToSubFunc(stmtp); }};
             for (const TraceEntry& entry : m_entries) {
                 // Adjust name prefix based on path in hierarchy
-                UINFO(9, "path='" << entry.path() << "' name='" << entry.name() << "' "
-                                  << (entry.cellp() ? static_cast<AstNode*>(entry.cellp())
-                                                    : static_cast<AstNode*>(entry.vscp())));
-                pathAdjustor.adjust(entry.rootio() ? "$rootio" : entry.path());
+                pathAdjustor.adjust(entry.path());
 
                 m_traName = entry.name();
 
@@ -426,7 +413,7 @@ class TraceDeclVisitor final : public VNVisitor {
                     // This is a subscope: insert a placeholder to be fixed up later
                     AstCell* const cellp = entry.cellp();
                     AstNodeStmt* const stmtp = new AstComment{
-                        cellp->fileline(), "Instance init for: " + cellp->prettyName()};
+                        cellp->fileline(), "Cell init for: " + cellp->prettyName()};
                     addToSubFunc(stmtp);
                     m_cellInitPlaceholders.emplace_back(nodep, cellp, stmtp);
                 }
@@ -685,7 +672,7 @@ public:
         // Now that we have everything ready, remove redundant pushPrefix/popPrefix
         // pairs. While functionally this is not really necessary (the trace files
         // might have some empty scope declarations), we do it to preserve previous
-        // behavior. Note: unfortunately generating these without the redundant
+        // behaviour. Note: unfortunately generating these without the redundant
         // push/pop pairs is a bit hard. It is cleaner to remove them.
         removeRedundantPrefixPushPop();
 
@@ -729,7 +716,7 @@ public:
 // Trace class functions
 
 void V3TraceDecl::traceDeclAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { TraceDeclVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("tracedecl", 0, dumpTreeEitherLevel() >= 3);
 }

@@ -148,11 +148,11 @@ public:
             // we just don't optimize any public sigs
             // Check the var entry, and remove if appropriate
             if (AstNodeStmt* const oldassp = entp->assignp()) {
-                UINFO(7, "       PREV: " << oldassp);
+                UINFO(7, "       PREV: " << oldassp << endl);
                 // Redundant assignment, in same level block
                 // Don't delete it now as it will confuse iteration since it maybe WAY
                 // above our current iteration point.
-                UINFOTREE(7, oldassp, "", "REMOVE/SAMEBLK");
+                if (debug() > 4) oldassp->dumpTree("-      REMOVE/SAMEBLK: ");
                 entp->complexAssign();
                 oldassp->unlinkFrBack();
                 if (VN_IS(oldassp, CReset)) {
@@ -166,8 +166,8 @@ public:
     }
     void resetStatement(AstVarScope* nodep, AstCReset* rstp) {
         // Do we have a old assignment we can nuke?
-        UINFO(4, "     CRESETof: " << nodep);
-        UINFO(7, "       new: " << rstp);
+        UINFO(4, "     CRESETof: " << nodep << endl);
+        UINFO(7, "       new: " << rstp << endl);
         const auto pair = m_map.emplace(std::piecewise_construct,  //
                                         std::forward_as_tuple(nodep),
                                         std::forward_as_tuple(LifeVarEntry::CRESET{}, rstp));
@@ -179,8 +179,8 @@ public:
     }
     void simpleAssign(AstVarScope* nodep, AstNodeAssign* assp) {
         // Do we have a old assignment we can nuke?
-        UINFO(4, "     ASSIGNof: " << nodep);
-        UINFO(7, "       new: " << assp);
+        UINFO(4, "     ASSIGNof: " << nodep << endl);
+        UINFO(7, "       new: " << assp << endl);
         const auto pair = m_map.emplace(std::piecewise_construct,  //
                                         std::forward_as_tuple(nodep),
                                         std::forward_as_tuple(LifeVarEntry::SIMPLEASSIGN{}, assp));
@@ -191,7 +191,7 @@ public:
         // lifeDump();
     }
     void complexAssign(AstVarScope* nodep) {
-        UINFO(4, "     clearof: " << nodep);
+        UINFO(4, "     clearof: " << nodep << endl);
         const auto pair = m_map.emplace(nodep, LifeVarEntry::COMPLEXASSIGN{});
         if (!pair.second) pair.first->second.complexAssign();
     }
@@ -205,7 +205,7 @@ public:
                 if (!varrefp->varp()->isSigPublic() && !varrefp->varp()->sensIfacep()) {
                     // Aha, variable is constant; substitute in.
                     // We'll later constant propagate
-                    UINFO(4, "     replaceconst: " << varrefp);
+                    UINFO(4, "     replaceconst: " << varrefp << endl);
                     varrefp->replaceWith(constp->cloneTree(false));
                     m_replacedVref = true;
                     VL_DO_DANGLING(varrefp->deleteTree(), varrefp);
@@ -213,14 +213,14 @@ public:
                     return;  // **DONE, no longer a var reference**
                 }
             }
-            UINFO(4, "     usage: " << nodep);
+            UINFO(4, "     usage: " << nodep << endl);
             pair.first->second.consumed();
         }
     }
     void complexAssignFind(AstVarScope* nodep) {
         const auto pair = m_map.emplace(nodep, LifeVarEntry::COMPLEXASSIGN{});
         if (!pair.second) {
-            UINFO(4, "     casfind: " << pair.first->first);
+            UINFO(4, "     casfind: " << pair.first->first << endl);
             pair.first->second.complexAssign();
         }
     }
@@ -257,7 +257,7 @@ public:
             AstVarScope* const nodep = itr.first;
             if (itr.second.setBeforeUse() && nodep->user1()) {
                 // Both branches set the var, we can remove the assignment before the IF.
-                UINFO(4, "DUALBRANCH " << nodep);
+                UINFO(4, "DUALBRANCH " << nodep << endl);
                 const auto itab = m_map.find(nodep);
                 if (itab != m_map.end()) checkRemoveAssign(itab);
             }
@@ -267,12 +267,12 @@ public:
     void clear() { m_map.clear(); }
     // DEBUG
     void lifeDump() {
-        UINFO(5, "  LifeMap:");
+        UINFO(5, "  LifeMap:" << endl);
         for (const auto& itr : m_map) {
-            UINFO(5,
-                  "     Ent:  " << (itr.second.setBeforeUse() ? "[F]  " : "     ") << itr.first);
+            UINFO(5, "     Ent:  " << (itr.second.setBeforeUse() ? "[F]  " : "     ") << itr.first
+                                   << endl);
             if (itr.second.assignp()) {  //
-                UINFO(5, "       Ass: " << itr.second.assignp());
+                UINFO(5, "       Ass: " << itr.second.assignp() << endl);
             }
         }
     }
@@ -363,7 +363,7 @@ class LifeVisitor final : public VNVisitor {
 
     //---- Track control flow changes
     void visit(AstNodeIf* nodep) override {
-        UINFO(4, "   IF " << nodep);
+        UINFO(4, "   IF " << nodep << endl);
         // Condition is part of PREVIOUS block
         iterateAndNextNull(nodep->condp());
         LifeBlock* const prevLifep = m_lifep;
@@ -378,7 +378,7 @@ class LifeVisitor final : public VNVisitor {
             iterateAndNextNull(nodep->elsesp());
         }
         m_lifep = prevLifep;
-        UINFO(4, "   join ");
+        UINFO(4, "   join " << endl);
         // Find sets on both flows
         m_lifep->dualBranch(ifLifep, elseLifep);
         // For the next assignments, clear any variables that were read or written in the block
@@ -401,6 +401,7 @@ class LifeVisitor final : public VNVisitor {
         LifeBlock* const bodyLifep = new LifeBlock{prevLifep, m_statep};
         {
             m_lifep = condLifep;
+            iterateAndNextNull(nodep->precondsp());
             iterateAndNextNull(nodep->condp());
         }
         {
@@ -409,7 +410,7 @@ class LifeVisitor final : public VNVisitor {
             iterateAndNextNull(nodep->incsp());
         }
         m_lifep = prevLifep;
-        UINFO(4, "   joinfor");
+        UINFO(4, "   joinfor" << endl);
         // For the next assignments, clear any variables that were read or written in the block
         condLifep->lifeToAbove();
         bodyLifep->lifeToAbove();
@@ -429,13 +430,13 @@ class LifeVisitor final : public VNVisitor {
             iterateAndNextNull(nodep->stmtsp());
             m_lifep = prevLifep;
         }
-        UINFO(4, "   joinjump");
+        UINFO(4, "   joinjump" << endl);
         // For the next assignments, clear any variables that were read or written in the block
         bodyLifep->lifeToAbove();
         VL_DO_DANGLING(delete bodyLifep, bodyLifep);
     }
     void visit(AstNodeCCall* nodep) override {
-        // UINFO(4, "  CCALL " << nodep);
+        // UINFO(4, "  CCALL " << nodep << endl);
         iterateChildren(nodep);
         // Enter the function and trace it
         // else is non-inline or public function we optimize separately
@@ -447,7 +448,7 @@ class LifeVisitor final : public VNVisitor {
         }
     }
     void visit(AstCFunc* nodep) override {
-        // UINFO(4, "  CFUNC " << nodep);
+        // UINFO(4, "  CFUNC " << nodep << endl);
         if (!m_tracingCall && !nodep->entryPoint()) return;
         m_tracingCall = false;
         if (nodep->recursive()) setNoopt();
@@ -478,7 +479,7 @@ public:
     // CONSTRUCTORS
     LifeVisitor(AstNode* nodep, LifeState* statep)
         : m_statep{statep} {
-        UINFO(4, "  LifeVisitor on " << nodep);
+        UINFO(4, "  LifeVisitor on " << nodep << endl);
         {
             m_lifep = new LifeBlock{nullptr, m_statep};
             iterate(nodep);
@@ -529,7 +530,7 @@ public:
 // Life class functions
 
 void V3Life::lifeAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     {
         LifeState state;
         LifeTopVisitor{nodep, &state};

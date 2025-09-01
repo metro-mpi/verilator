@@ -47,10 +47,8 @@ protected:
     std::string m_filename;  // Filename, for error messages
     VerilatedAssertOneThread m_assertOne;  // Assert only called from single thread
 
-    static constexpr size_t bufferSize() {
-        return 256 * 1024L;
-    }  // See below for slack calculation
-    static constexpr size_t bufferInsertSize() { return 16 * 1024L; }
+    static constexpr size_t bufferSize() { return 256 * 1024; }  // See below for slack calculation
+    static constexpr size_t bufferInsertSize() { return 16 * 1024; }
 
     void header() VL_MT_UNSAFE_ONE;
     void trailer() VL_MT_UNSAFE_ONE;
@@ -121,10 +119,8 @@ protected:
     std::string m_filename;  // Filename, for error messages
     VerilatedAssertOneThread m_assertOne;  // Assert only called from single thread
 
-    static constexpr size_t bufferSize() {
-        return 256 * 1024L;
-    }  // See below for slack calculation
-    static constexpr size_t bufferInsertSize() { return 16 * 1024L; }
+    static constexpr size_t bufferSize() { return 256 * 1024; }  // See below for slack calculation
+    static constexpr size_t bufferInsertSize() { return 16 * 1024; }
 
     virtual void fill() = 0;
     void header() VL_MT_UNSAFE_ONE;
@@ -298,7 +294,7 @@ inline VerilatedDeserialize& operator>>(VerilatedDeserialize& os, std::string& r
     uint32_t len = 0;
     os >> len;
     rhs.resize(len);
-    // cppcheck-suppress cstyleCast  // NOLINTNEXTLINE(google-readability-casting)
+    // C cast is required below
     return os.read((void*)(rhs.data()), len);
 }
 VerilatedSerialize& operator<<(VerilatedSerialize& os, VerilatedContext* rhsp);

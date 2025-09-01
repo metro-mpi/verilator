@@ -14,6 +14,6 @@ test.top_filename = "t/t_lint_always_comb_multidriven_bad.v"
 
 test.lint(verilator_flags2=['--public-flat-rw --lint-only'],
           fails=True,
-          expect_filename=test.golden_filename)
+          expect_filename="t/t_lint_always_comb_multidriven_bad.out")
 
 test.passes()

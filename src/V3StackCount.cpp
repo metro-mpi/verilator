@@ -79,8 +79,8 @@ private:
         m_stackSize = 0;
         return savedCount;
     }
-    void endVisitBase(uint32_t savedCount, const AstNode* nodep) {
-        UINFO(8, "cost " << std::setw(6) << std::left << m_stackSize << "  " << nodep);
+    void endVisitBase(uint32_t savedCount, AstNode* nodep) {
+        UINFO(8, "cost " << std::setw(6) << std::left << m_stackSize << "  " << nodep << endl);
         if (!m_ignoreRemaining) m_stackSize += savedCount;
     }
 
@@ -91,13 +91,13 @@ private:
         iterateAndNextConstNull(nodep->condp());
         const uint32_t savedCount = m_stackSize;
 
-        UINFO(8, "thensp:");
+        UINFO(8, "thensp:\n");
         reset();
         iterateAndNextConstNull(nodep->thensp());
         uint32_t ifCount = m_stackSize;
         if (nodep->branchPred().unlikely()) ifCount = 0;
 
-        UINFO(8, "elsesp:");
+        UINFO(8, "elsesp:\n");
         reset();
         iterateAndNextConstNull(nodep->elsesp());
         uint32_t elseCount = m_stackSize;
@@ -112,7 +112,7 @@ private:
             if (nodep->thensp()) nodep->thensp()->user2(0);  // Don't dump it
         }
     }
-    void visit(AstCond* nodep) override {
+    void visit(AstNodeCond* nodep) override {
         if (m_ignoreRemaining) return;
         // Just like if/else above, the ternary operator only evaluates
         // one of the two expressions, so only count the max.
@@ -120,12 +120,12 @@ private:
         iterateAndNextConstNull(nodep->condp());
         const uint32_t savedCount = m_stackSize;
 
-        UINFO(8, "?");
+        UINFO(8, "?\n");
         reset();
         iterateAndNextConstNull(nodep->thenp());
         const uint32_t ifCount = m_stackSize;
 
-        UINFO(8, ":");
+        UINFO(8, ":\n");
         reset();
         iterateAndNextConstNull(nodep->elsep());
         const uint32_t elseCount = m_stackSize;

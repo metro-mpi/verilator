@@ -69,7 +69,7 @@ class WidthSelVisitor final : public VNVisitor {
     };
     static FromData fromDataForArray(AstNode* nodep, AstNode* basefromp) {
         // What is the data type and information for this SEL-ish's from()?
-        UINFO(9, "  fromData start ddtypep = " << basefromp);
+        UINFO(9, "  fromData start ddtypep = " << basefromp << endl);
         VNumRange fromRange;  // constructs to isRanged(false)
         while (basefromp) {
             if (VN_IS(basefromp, AttrOf)) {
@@ -81,7 +81,7 @@ class WidthSelVisitor final : public VNVisitor {
         UASSERT_OBJ(basefromp && basefromp->dtypep(), nodep, "Select with no from dtype");
         AstNodeDType* const ddtypep = basefromp->dtypep()->skipRefp();
         AstNodeDType* const errp = ddtypep;
-        UINFO(9, "  fromData.ddtypep = " << ddtypep);
+        UINFO(9, "  fromData.ddtypep = " << ddtypep << endl);
         if (const AstNodeArrayDType* const adtypep = VN_CAST(ddtypep, NodeArrayDType)) {
             fromRange = adtypep->declRange();
         } else if (VN_IS(ddtypep, AssocArrayDType)) {
@@ -226,16 +226,16 @@ class WidthSelVisitor final : public VNVisitor {
     void visit(AstSelBit* nodep) override {
         // Select of a non-width specified part of an array, i.e. "array[2]"
         // This select style has a lsb and msb (no user specified width)
-        UINFO(6, "SELBIT " << nodep);
-        UINFOTREE(9, nodep->backp(), "", "SELBT0");
+        UINFO(6, "SELBIT " << nodep << endl);
+        if (debug() >= 9) nodep->backp()->dumpTree("-  SELBT0: ");
         // lhsp/rhsp do not need to be constant
         AstNodeExpr* const fromp = nodep->fromp()->unlinkFrBack();
         AstNodeExpr* const rhsp = nodep->bitp()->unlinkFrBack();  // bit we're extracting
-        UINFOTREE(9, nodep, "", "SELBT2");
+        if (debug() >= 9) nodep->dumpTree("-  SELBT2: ");
         const FromData fromdata = fromDataForArray(nodep, fromp);
         AstNodeDType* const ddtypep = fromdata.m_dtypep;
         const VNumRange fromRange = fromdata.m_fromRange;
-        UINFO(6, "  ddtypep " << ddtypep);
+        UINFO(6, "  ddtypep " << ddtypep << endl);
         if (const AstUnpackArrayDType* const adtypep = VN_CAST(ddtypep, UnpackArrayDType)) {
             // SELBIT(array, index) -> ARRAYSEL(array, index)
             AstNodeExpr* subp = rhsp;
@@ -244,7 +244,7 @@ class WidthSelVisitor final : public VNVisitor {
             }
             AstArraySel* const newp = new AstArraySel{nodep->fileline(), fromp, subp};
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off array reference
-            UINFOTREE(9, newp, "", "SELBTn");
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (const AstPackArrayDType* const adtypep = VN_CAST(ddtypep, PackArrayDType)) {
@@ -262,18 +262,19 @@ class WidthSelVisitor final : public VNVisitor {
             // cppcheck-suppress zerodivcond
             const int elwidth = adtypep->width() / fromRange.elements();
             AstSel* const newp = new AstSel{
-                nodep->fileline(), fromp, newMulConst(nodep->fileline(), elwidth, subp), elwidth};
+                nodep->fileline(), fromp, newMulConst(nodep->fileline(), elwidth, subp),
+                new AstConst(nodep->fileline(), AstConst::Unsized32{}, elwidth)};
             newp->declRange(fromRange);
             newp->declElWidth(elwidth);
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off array reference
-            UINFOTREE(9, newp, "", "SELBTn");
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (const AstAssocArrayDType* const adtypep = VN_CAST(ddtypep, AssocArrayDType)) {
             // SELBIT(array, index) -> ASSOCSEL(array, index)
             AstAssocSel* const newp = new AstAssocSel{nodep->fileline(), fromp, rhsp};
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off array reference
-            UINFOTREE(9, newp, "", "SELBTn");
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (const AstWildcardArrayDType* const adtypep
@@ -281,7 +282,7 @@ class WidthSelVisitor final : public VNVisitor {
             // SELBIT(array, index) -> WILDCARDSEL(array, index)
             AstWildcardSel* const newp = new AstWildcardSel{nodep->fileline(), fromp, rhsp};
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off array reference
-            UINFOTREE(9, newp, "", "SELBTn");
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (const AstDynArrayDType* const adtypep = VN_CAST(ddtypep, DynArrayDType)) {
@@ -290,7 +291,7 @@ class WidthSelVisitor final : public VNVisitor {
             AstCMethodHard* const newp
                 = new AstCMethodHard{nodep->fileline(), fromp, methodName, rhsp};
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off queue reference
-            UINFOTREE(9, newp, "", "SELBTq");
+            if (debug() >= 9) newp->dumpTree("-  SELBTq: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (const AstQueueDType* const adtypep = VN_CAST(ddtypep, QueueDType)) {
@@ -304,7 +305,7 @@ class WidthSelVisitor final : public VNVisitor {
                 newp = new AstCMethodHard{nodep->fileline(), fromp, methodName, rhsp};
             }
             newp->dtypeFrom(adtypep->subDTypep());  // Need to strip off queue reference
-            UINFOTREE(9, newp, "", "SELBTq");
+            if (debug() >= 9) newp->dumpTree("-  SELBTq: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (VN_IS(ddtypep, BasicDType) && ddtypep->isString()) {
@@ -326,25 +327,29 @@ class WidthSelVisitor final : public VNVisitor {
             } else {
                 newp = new AstGetcRefN{nodep->fileline(), fromp, rhsp};
             }
-            UINFO(6, "   new " << newp);
+            UINFO(6, "   new " << newp << endl);
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (VN_IS(ddtypep, BasicDType)) {
             // SELBIT(range, index) -> SEL(array, index, 1)
             AstSel* const newp
-                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(rhsp, fromRange), 1};
+                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(rhsp, fromRange),
+                             // Unsized so width from user
+                             new AstConst{nodep->fileline(), AstConst::Unsized32{}, 1}};
             newp->declRange(fromRange);
-            UINFO(6, "   new " << newp);
-            UINFOTREE(9, newp, "", "SELBTn");
+            UINFO(6, "   new " << newp << endl);
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (VN_IS(ddtypep, NodeUOrStructDType)) {  // A bit from the packed struct
             // SELBIT(range, index) -> SEL(array, index, 1)
             AstSel* const newp
-                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(rhsp, fromRange), 1};
+                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(rhsp, fromRange),
+                             // Unsized so width from user
+                             new AstConst{nodep->fileline(), AstConst::Unsized32{}, 1}};
             newp->declRange(fromRange);
-            UINFO(6, "   new " << newp);
-            UINFOTREE(9, newp, "", "SELBTn");
+            UINFO(6, "   new " << newp << endl);
+            if (debug() >= 9) newp->dumpTree("-  SELBTn: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else {  // nullptr=bad extract, or unknown node type
@@ -360,12 +365,12 @@ class WidthSelVisitor final : public VNVisitor {
         // Select of a range specified part of an array, i.e. "array[2:3]"
         // SELEXTRACT(from,msb,lsb) -> SEL(from, lsb, 1+msb-lsb)
         // This select style has a (msb or lsb) and width
-        UINFO(6, "SELEXTRACT " << nodep);
-        // UINFOTREE(9, nodep, "", "SELEX0");
+        UINFO(6, "SELEXTRACT " << nodep << endl);
+        // if (debug() >= 9) nodep->dumpTree("-  SELEX0: ");
         // Below 2 lines may change nodep->widthp()
         V3Const::constifyParamsNoWarnEdit(nodep->leftp());  // May relink pointed to node
         V3Const::constifyParamsNoWarnEdit(nodep->rightp());  // May relink pointed to node
-        // UINFOTREE(9, nodep, "", "SELEX3");
+        // if (debug() >= 9) nodep->dumpTree("-  SELEX3: ");
         AstNodeExpr* const fromp = nodep->fromp()->unlinkFrBack();
         const FromData fromdata = fromDataForArray(nodep, fromp);
         AstNodeDType* const ddtypep = fromdata.m_dtypep;
@@ -388,7 +393,7 @@ class WidthSelVisitor final : public VNVisitor {
             newp->dtypep(ddtypep);
             newp->didWidth(true);
             newp->protect(false);
-            UINFO(6, "   new " << newp);
+            UINFO(6, "   new " << newp << endl);
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
             return;
@@ -444,14 +449,14 @@ class WidthSelVisitor final : public VNVisitor {
                 lsb = x;
             }
             const int elwidth = adtypep->width() / fromRange.elements();
-            AstSel* const newp
-                = new AstSel{nodep->fileline(), fromp,
-                             newMulConst(nodep->fileline(), elwidth, newSubLsbOf(lsbp, fromRange)),
-                             (msb - lsb + 1) * elwidth};
+            AstSel* const newp = new AstSel{
+                nodep->fileline(), fromp,
+                newMulConst(nodep->fileline(), elwidth, newSubLsbOf(lsbp, fromRange)),
+                new AstConst(nodep->fileline(), AstConst::Unsized32{}, (msb - lsb + 1) * elwidth)};
             newp->declRange(fromRange);
             newp->declElWidth(elwidth);
             newp->dtypeFrom(sliceDType(adtypep, msb, lsb));
-            // UINFOTREE(9, newp, "", "EXTBTn");
+            // if (debug() >= 9) newp->dumpTree("-  EXTBTn: ");
             UASSERT_OBJ(newp->widthMin() == newp->widthConst(), nodep, "Width mismatch");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
@@ -472,11 +477,14 @@ class WidthSelVisitor final : public VNVisitor {
                 msb = lsb;
                 lsb = x;
             }
-            AstSel* const newp = new AstSel{nodep->fileline(), fromp, newSubLsbOf(lsbp, fromRange),
-                                            msb + 1 - lsb};
+            AstNodeExpr* const widthp = new AstConst(
+                msbp->fileline(), AstConst::Unsized32{},  // Unsized so width from user
+                msb + 1 - lsb);
+            AstSel* const newp
+                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(lsbp, fromRange), widthp};
             newp->declRange(fromRange);
-            UINFO(6, "   new " << newp);
-            // UINFOTREE(9, newp, "", "SELEXnew");
+            UINFO(6, "   new " << newp << endl);
+            // if (debug() >= 9) newp->dumpTree("-  SELEXnew: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else if (VN_IS(ddtypep, NodeUOrStructDType)) {
@@ -491,17 +499,20 @@ class WidthSelVisitor final : public VNVisitor {
                 msb = lsb;
                 lsb = x;
             }
-            AstSel* const newp = new AstSel{nodep->fileline(), fromp, newSubLsbOf(lsbp, fromRange),
-                                            msb + 1 - lsb};
+            AstNodeExpr* const widthp = new AstConst(
+                msbp->fileline(), AstConst::Unsized32{},  // Unsized so width from user
+                msb + 1 - lsb);
+            AstSel* const newp
+                = new AstSel{nodep->fileline(), fromp, newSubLsbOf(lsbp, fromRange), widthp};
             newp->declRange(fromRange);
-            UINFO(6, "   new " << newp);
-            // UINFOTREE(9, newp, "", "SELEXnew");
+            UINFO(6, "   new " << newp << endl);
+            // if (debug() >= 9) newp->dumpTree("-  SELEXnew: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else {  // nullptr=bad extract, or unknown node type
             nodep->v3error("Illegal range select; type already selected, or bad dimension: "
                            << "data type is " << fromdata.m_errp->prettyDTypeNameQ());
-            UINFO(1, "    Related ddtype: " << ddtypep);
+            UINFO(1, "    Related ddtype: " << ddtypep << endl);
             // How to recover?  We'll strip a dimension.
             nodep->replaceWith(fromp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
@@ -515,15 +526,15 @@ class WidthSelVisitor final : public VNVisitor {
     void replaceSelPlusMinus(AstNodePreSel* nodep) {
         // Select of a range specified with +: or -:, i.e. "array[2+:3], [2-:3]"
         // This select style has a lsb and width
-        UINFO(6, "SELPLUS/MINUS " << nodep);
+        UINFO(6, "SELPLUS/MINUS " << nodep << endl);
         // Below 2 lines may change nodep->widthp()
-        UINFOTREE(9, nodep, "", "SELPM0");
+        if (debug() >= 9) nodep->dumpTree("-  SELPM0: ");
         V3Width::widthParamsEdit(nodep->rhsp());  // constifyEdit doesn't ensure widths finished
         V3Const::constifyEdit(nodep->rhsp());  // May relink pointed to node, ok if not const
         V3Const::constifyParamsEdit(nodep->thsp());  // May relink pointed to node
         checkConstantOrReplace(nodep->thsp(),
                                "Width of :+ or :- bit slice range isn't a constant");
-        UINFOTREE(9, nodep, "", "SELPM3");
+        if (debug() >= 9) nodep->dumpTree("-  SELPM3: ");
         // Now replace it with an AstSel
         AstNodeExpr* const fromp = nodep->fromp()->unlinkFrBack();
         AstNodeExpr* const rhsp = nodep->rhsp()->unlinkFrBack();
@@ -570,10 +581,11 @@ class WidthSelVisitor final : public VNVisitor {
                    || (VN_IS(ddtypep, NodeUOrStructDType)
                        && VN_AS(ddtypep, NodeUOrStructDType)->packedUnsup())) {
             int elwidth = 1;
-            int newwidth = width;
+            AstNodeExpr* newwidthp = widthp;
             if (const AstPackArrayDType* const adtypep = VN_CAST(ddtypep, PackArrayDType)) {
                 elwidth = adtypep->width() / fromRange.elements();
-                newwidth = width * elwidth;
+                newwidthp
+                    = new AstConst(nodep->fileline(), AstConst::Unsized32{}, width * elwidth);
             }
             AstNodeExpr* newlsbp = nullptr;
             if (VN_IS(nodep, SelPlus)) {
@@ -596,11 +608,11 @@ class WidthSelVisitor final : public VNVisitor {
                 nodep->v3fatalSrc("Bad Case");
             }
             if (elwidth != 1) newlsbp = newMulConst(nodep->fileline(), elwidth, newlsbp);
-            AstSel* const newp = new AstSel{nodep->fileline(), fromp, newlsbp, newwidth};
+            AstSel* const newp = new AstSel{nodep->fileline(), fromp, newlsbp, newwidthp};
             newp->declRange(fromRange);
             newp->declElWidth(elwidth);
-            UINFO(6, "   new " << newp);
-            UINFOTREE(9, newp, "", "SELNEW");
+            UINFO(6, "   new " << newp << endl);
+            if (debug() >= 9) newp->dumpTree("-  SELNEW: ");
             nodep->replaceWith(newp);
             VL_DO_DANGLING(pushDeletep(nodep), nodep);
         } else {  // nullptr=bad extract, or unknown node type
@@ -637,7 +649,7 @@ public:
 // Width class functions
 
 AstNode* V3Width::widthSelNoIterEdit(AstNode* nodep) {
-    UINFO(4, __FUNCTION__ << ": " << nodep);
+    UINFO(4, __FUNCTION__ << ": " << nodep << endl);
     WidthSelVisitor visitor;
     nodep = visitor.mainAcceptEdit(nodep);
     return nodep;

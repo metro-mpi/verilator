@@ -4,11 +4,10 @@
 // To recreate:
 //   Using verilator_ext_tests
 //   t/t_uvm_parse.py --debug --no-dump-tree
-//   Insert to here obj_vlt/t_uvm_parse/Vt_uvm_parse__inputs.vpp
+//   Copy to here t/obj_vlt/Vt_uvm_parse/Vt_uvm_parse__inputs.vpp
 //   M-x untabify
 //   (global-replace-regexp "[ ]+$" "")
 //   (global-replace-regexp ", +" ", ")
-//   (global-replace-regexp (concat "\"[^\" ]*" "/uvm/src") "\"t/uvm/src")
 //   Add this header
 //------------------------------------------------------------------------------
 // Copyright 2007-2011 Mentor Graphics Corporation

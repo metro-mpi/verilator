@@ -37,11 +37,6 @@ module t;
     $finish;
   end
 
-  always @(vif1.data) begin
-    if ($time < 9) $write("[%0t] vif1.data==%h\n", $time, vif1.data);
-  end
-  always @(intf2.data) begin
-    if ($time < 9) $write("[%0t] intf2.data==%h\n", $time, intf2.data);
-  end
-
+  always_comb if ($time < 9) $write("vif1.data==%h\n", vif1.data);
+  always_comb if ($time < 9) $write("intf2.data==%h\n", intf2.data);
 endmodule

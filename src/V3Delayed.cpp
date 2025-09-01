@@ -19,7 +19,7 @@
 // For the Pre/Post scheduling semantics, see V3OrderGraph.
 //
 // There are several "Schemes" we can choose from for implementing a
-// non-blocking assignment (NBA), represented by an AstAssignDly.
+// non-blocking assignment (NBA), repserented by an AstAssignDly.
 //
 // It is assumed and required in this pass that each NBA updates at
 // most one variable. Earlier passes should have ensured this.
@@ -70,18 +70,6 @@
 //  - Add new "Post-scheduled" logic:
 //      if (__VdlySet__LHS) a[__VdlyDim0__LHS][__VdlyDim1__LHS] = __VdlyVal__LHS;
 // Multiple consecutive NBAs of compatible form can share the same  __VdlySet* flag
-//
-// "Shadow variable masked" scheme. Used for packed target variables that
-// have both blocking and non-blocking updates. E.g.:
-//   LHS[Index] <= RHS;
-//   When there is also LHS[SomeNonOverlappingIndex] = RHS2;
-// is converted to:
-//  - In the original logic, replace the AstAssignDelay with:
-//      __Vdly__LHS[Index] = RHS;
-//      __VdlyMask__LHS[Index] = '1;
-//  - Add new "Post-scheduled" logic:
-//      LHS = (__Vdly__LHS & __VdlyMask__LHS) | (LHS & ~__VdlyMask__LHS);
-//      __VdlyMask__LHS = '0;
 //
 // "Unique flag" scheme. Used for all variables updated by NBAs
 // in suspendable processees or forks. E.g.:
@@ -136,7 +124,6 @@ class DelayedVisitor final : public VNVisitor {
         Undecided = 0,
         UnsupportedCompoundArrayInLoop,
         ShadowVar,
-        ShadowVarMasked,
         FlagShared,
         FlagUnique,
         ValueQueueWhole,
@@ -165,10 +152,6 @@ class DelayedVisitor final : public VNVisitor {
             struct {  // Stuff needed for Scheme::ShadowVar
                 AstVarScope* vscp;  // The shadow variable
             } m_shadowVariableKit;
-            struct {  // Stuff needed for Scheme::ShadowVarMasked
-                AstVarScope* vscp;  // The shadow variable
-                AstVarScope* maskp;  // The mask variable
-            } m_shadowVarMaskedKit;
             struct {  // Stuff needed for Scheme::FlagShared
                 AstActive* activep;  // The active block for the Pre/Post logic
                 AstAlwaysPost* postp;  // The post block for commiting results
@@ -184,16 +167,10 @@ class DelayedVisitor final : public VNVisitor {
         } m_kitUnion;
 
     public:
-        VarScopeInfo() = default;
-        ~VarScopeInfo() = default;
         // Accessors for the above union fields
         auto& shadowVariableKit() {
             UASSERT(m_scheme == Scheme::ShadowVar, "Inconsistent Scheme");
             return m_kitUnion.m_shadowVariableKit;
-        }
-        auto& shadowVarMaskedKit() {
-            UASSERT(m_scheme == Scheme::ShadowVarMasked, "Inconsistent Scheme");
-            return m_kitUnion.m_shadowVarMaskedKit;
         }
         auto& flagSharedKit() {
             UASSERT(m_scheme == Scheme::FlagShared, "Inconsistent Scheme");
@@ -220,20 +197,7 @@ class DelayedVisitor final : public VNVisitor {
             // Remove duplicates
             V3Const::constifyExpensiveEdit(m_senTreep);
         }
-        // cppcheck-suppress constParameterPointer
         void addSensitivity(AstSenTree* nodep) { addSensitivity(nodep->sensesp()); }
-    };
-
-    // Data structure to keep track of all writes to
-    struct WriteReference final {
-        AstVarRef* m_refp = nullptr;  // The reference
-        bool m_isNBA = false;  // True if an NBA write
-        bool m_inNonComb = false;  // True if reference is known to be in non-combinational logic
-        WriteReference() = default;
-        WriteReference(AstVarRef* refp, bool isNBA, bool inNonComb)
-            : m_refp{refp}
-            , m_isNBA{isNBA}
-            , m_inNonComb{inNonComb} {}
     };
 
     // Data required to lower AstAssignDelay later
@@ -246,18 +210,13 @@ class DelayedVisitor final : public VNVisitor {
     //  AstVar::user1()         -> bool.  Set true if already issued MULTIDRIVEN warning
     //  AstVarRef::user1()      -> bool.  Set true if target of NBA
     //  AstAssignDly::user1()   -> bool.  Set true if already visited
-    //  AstAssignDly::user2p()  -> AstVarScope*: Scope this AstAssignDelay is under
     //  AstNodeModule::user1p() -> std::unorded_map<std::string, AstVar*> temp map via m_varMap
-    //  AstScope::user1()       -> int: Temporary counter for this scope
     //  AstVarScope::user1p()   -> VarScopeInfo via m_vscpInfo
     //  AstVarScope::user2p()   -> AstVarRef*: First write reference to the Variable
-    //  AstVarScope::user3p()   -> std::vector<WriteReference> via m_writeRefs;
     const VNUser1InUse m_user1InUse{};
     const VNUser2InUse m_user2InUse{};
-    const VNUser3InUse m_user3InUse{};
     AstUser1Allocator<AstNodeModule, std::unordered_map<std::string, AstVar*>> m_varMap;
     AstUser1Allocator<AstVarScope, VarScopeInfo> m_vscpInfo;
-    AstUser3Allocator<AstVarScope, std::vector<WriteReference>> m_writeRefs;
 
     // STATE - across all visitors
     std::set<AstSenTree*> m_timingDomains;  // Timing resume domains
@@ -266,11 +225,9 @@ class DelayedVisitor final : public VNVisitor {
     AstActive* m_activep = nullptr;  // Current activate
     const AstCFunc* m_cfuncp = nullptr;  // Current public C Function
     AstNodeProcedure* m_procp = nullptr;  // Current process
-    AstScope* m_scopep = nullptr;  // Current scope
     bool m_inLoop = false;  // True in for loops
     bool m_inSuspendableOrFork = false;  // True in suspendable processes and forks
     bool m_ignoreBlkAndNBlk = false;  // Suppress delayed assignment BLKANDNBLK
-    bool m_inNonCombLogic = false;  // We are in non-combinational logic
     AstVarRef* m_currNbaLhsRefp = nullptr;  // Current NBA LHS variable reference
 
     // STATE - during NBA conversion (after visit)
@@ -281,7 +238,6 @@ class DelayedVisitor final : public VNVisitor {
 
     // STATE - Statistic tracking
     VDouble0 m_nSchemeShadowVar;  // Number of variables using Scheme::ShadowVar
-    VDouble0 m_nSchemeShadowVarMasked;  // Number of variabels using Scheme::ShadowVarMasked
     VDouble0 m_nSchemeFlagShared;  // Number of variables using Scheme::FlagShared
     VDouble0 m_nSchemeFlagUnique;  // Number of variables using Scheme::FlagUnique
     VDouble0 m_nSchemeValueQueuesWhole;  //  Number of variables using Scheme::ValueQueueWhole
@@ -290,129 +246,15 @@ class DelayedVisitor final : public VNVisitor {
 
     // METHODS
 
-    // Return true iff a variable is assigned by both blocking and nonblocking
-    // assignments. Issue BLKANDNBLK error if we can't prove the mixed
-    // assignments are to independent bits and the blocking assignment can be
-    // in combinational logic, which is something we can't safely implement
-    // still.
-    bool checkMixedUsage(const AstVarScope* vscp, bool isIntegralOrPacked) {
-
-        struct Ref final {
-            AstVarRef* m_refp;  // The reference
-            bool m_inNonComb;  // True if known to be in non-combinational logic
-            int m_lsb;  // LSB of accessed range
-            int m_msb;  // MSB of accessed range
-            Ref(AstVarRef* refp, bool inNonComb, int lsb, int msb)
-                : m_refp{refp}
-                , m_inNonComb{inNonComb}
-                , m_lsb{lsb}
-                , m_msb{msb} {}
-        };
-
-        std::vector<Ref> blkRefs;  // Blocking writes
-        std::vector<Ref> nbaRefs;  // Non-blockign writes
-
-        const int width = isIntegralOrPacked ? vscp->width() : 1;
-
-        for (const auto& writeRef : m_writeRefs(vscp)) {
-            int lsb = 0;
-            int msb = width - 1;
-            if (const AstSel* const selp = VN_CAST(writeRef.m_refp->backp(), Sel)) {
-                if (VN_IS(selp->lsbp(), Const)) {
-                    lsb = selp->lsbConst();
-                    msb = selp->msbConst();
-                }
-            }
-            if (writeRef.m_isNBA) {
-                nbaRefs.emplace_back(writeRef.m_refp, writeRef.m_inNonComb, lsb, msb);
-            } else {
-                blkRefs.emplace_back(writeRef.m_refp, writeRef.m_inNonComb, lsb, msb);
-            }
-        }
-        // We only run this function on targets of NBAs, so there should be at least one...
-        UASSERT_OBJ(!nbaRefs.empty(), vscp, "Did not record NBA write");
-        // If no blocking upadte, then we are good
-        if (blkRefs.empty()) return false;
-
-        // If the blocking assignment is in non-combinational logic (i.e.:
-        // in logic that has an explicit trigger), then we can safely
-        // implement it (there is no race between clocked logic and post
-        // scheduled logic), so need not error
-        blkRefs.erase(std::remove_if(blkRefs.begin(), blkRefs.end(),
-                                     [](const Ref& ref) { return ref.m_inNonComb; }),
-                      blkRefs.end());
-
-        // If nothing left, then we need not error
-        if (blkRefs.empty()) return true;
-
-        // If not a packed variable, warn here as we can't prove independence
-        if (!isIntegralOrPacked) {
-            const Ref& blkRef = blkRefs.front();
-            const Ref& nbaRef = nbaRefs.front();
-            vscp->v3warn(
-                BLKANDNBLK,
-                "Unsupported: Blocking and non-blocking assignments to same non-packed variable: "
-                    << vscp->varp()->prettyNameQ() << '\n'
-                    << vscp->warnContextPrimary() << '\n'
-                    << blkRef.m_refp->warnOther() << "... Location of blocking assignment\n"
-                    << blkRef.m_refp->warnContextSecondary() << '\n'
-                    << nbaRef.m_refp->warnOther() << "... Location of nonblocking assignment\n"
-                    << nbaRef.m_refp->warnContextSecondary());
-            return true;
-        }
-
-        // We need to error if we can't prove the written bits are independent
-
-        // Sort refs by interval
-        const auto lessThanRef = [](const Ref& a, const Ref& b) {
-            if (a.m_lsb != b.m_lsb) return a.m_lsb < b.m_lsb;
-            return a.m_msb < b.m_msb;
-        };
-        std::stable_sort(blkRefs.begin(), blkRefs.end(), lessThanRef);
-        std::stable_sort(nbaRefs.begin(), nbaRefs.end(), lessThanRef);
-        // Iterate both vectors, checking for overlap
-        auto bIt = blkRefs.begin();
-        auto nIt = nbaRefs.begin();
-        while (bIt != blkRefs.end() && nIt != nbaRefs.end()) {
-            if (lessThanRef(*bIt, *nIt)) {
-                if (nIt->m_lsb <= bIt->m_msb) break;  // Stop on Overlap
-                ++bIt;
-            } else {
-                if (bIt->m_lsb <= nIt->m_msb) break;  // Stop on Overlap
-                ++nIt;
-            }
-        }
-
-        // If we found an overlapping range that cannot be safely implemented, then wran...
-        if (bIt != blkRefs.end() && nIt != nbaRefs.end()) {
-            const Ref& blkRef = *bIt;
-            const Ref& nbaRef = *nIt;
-            vscp->v3warn(BLKANDNBLK, "Unsupported: Blocking and non-blocking assignments to "
-                                     "potentially overlapping bits of same packed variable: "
-                                         << vscp->varp()->prettyNameQ() << '\n'
-                                         << vscp->warnContextPrimary() << '\n'
-                                         << blkRef.m_refp->warnOther()
-                                         << "... Location of blocking assignment" << " (bits ["
-                                         << blkRef.m_msb << ":" << blkRef.m_lsb << "])\n"
-                                         << blkRef.m_refp->warnContextSecondary() << '\n'
-                                         << nbaRef.m_refp->warnOther()
-                                         << "... Location of nonblocking assignment" << " (bits ["
-                                         << nbaRef.m_msb << ":" << nbaRef.m_lsb << "])\n"
-                                         << nbaRef.m_refp->warnContextSecondary());
-        }
-
-        return true;
-    }
-
     // Choose the NBA scheme used for the given variable.
-    Scheme chooseScheme(const AstVarScope* vscp, const VarScopeInfo& vscpInfo) {
+    static Scheme chooseScheme(const AstVarScope* vscp, const VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(vscpInfo.m_scheme == Scheme::Undecided, vscp, "NBA scheme already decided");
 
         const AstNodeDType* const dtypep = vscp->dtypep()->skipRefp();
         // Unpacked arrays
         if (const AstUnpackArrayDType* const uaDTypep = VN_CAST(dtypep, UnpackArrayDType)) {
             // Basic underlying type of elements, if any.
-            const AstBasicDType* const basicp = uaDTypep->basicp();
+            AstBasicDType* const basicp = uaDTypep->basicp();
             // If used in a loop, we must have a dynamic commit queue. (Also works in suspendables)
             if (vscpInfo.m_inLoop) {
                 // Arrays with compound element types are currently not supported in loops
@@ -437,25 +279,6 @@ class DelayedVisitor final : public VNVisitor {
 
         // In a suspendable of fork, we must use the unique flag scheme, TODO: why?
         if (vscpInfo.m_inSuspOrFork) return Scheme::FlagUnique;
-
-        const bool isIntegralOrPacked = dtypep->isIntegralOrPacked();
-        // Check for mixed usage (this also warns if not OK)
-        if (checkMixedUsage(vscp, isIntegralOrPacked)) {
-            // If it's a variable updated by both blocking and non-blocking
-            // assignments, use the ShadowVarMasked schem if masked update is
-            // possible. This can handle blocking and non-blocking updates to
-            // inpdendent parts correctly at run-time, and always works, even
-            // in loops or other dynamic context.
-            if (isIntegralOrPacked) return Scheme::ShadowVarMasked;
-            // If it's inside a loop, use Scheme::ShadowVar, which is safe,
-            // but will generate incorrect code if a partial update is used
-            if (vscpInfo.m_inLoop) return Scheme::ShadowVar;
-            // Otherwise (for not packed variables), use the FlagUnique scheme,
-            // which at least handles partial updates correctly, but might break
-            // in loops or other dynamic context
-            return Scheme::FlagUnique;
-        }
-
         // Otherwise use the simple shadow variable scheme
         return Scheme::ShadowVar;
     }
@@ -470,11 +293,6 @@ class DelayedVisitor final : public VNVisitor {
             varp = new AstVar{flp, VVarType::BLOCKTEMP, name, dtypep};
             modp->addStmtsp(varp);
         }
-
-        // We should be able to assert this here, but unfortuantely
-        // 'isAssignmentCompatible' does not exist as of right now.
-        // UASSERT_OBJ(isAssignmentCompatible(varp->dtypep(), dtypep), flp, "Invalid temporary");
-
         // Create the AstVarScope
         AstVarScope* const varscp = new AstVarScope{flp, scopep, varp};
         scopep->addVarsp(varscp);
@@ -530,29 +348,9 @@ class DelayedVisitor final : public VNVisitor {
             nodep = arrSelp->fromp();
         }
         // What remains must be an AstVarRef, or some sort of select, we assume can reuse it.
-        if (const AstAssocSel* const aselp = VN_CAST(nodep, AssocSel)) {
-            UASSERT_OBJ(aselp->fromp()->isPure() && aselp->bitp()->isPure(), lhsp,
-                        "Malformed LHS in NBA");
-        } else {
-            UASSERT_OBJ(nodep->isPure(), lhsp, "Malformed LHS in NBA");
-        }
+        UASSERT_OBJ(nodep->isPure(), lhsp, "Malformed LHS in NBA");
         // Now have been converted to use the captured values
         return lhsp;
-    }
-
-    // Create a unique temporary variable name
-    std::string uniqueTmpName(AstScope* scopep, const AstVarScope* vscp, VarScopeInfo& vscpInfo) {
-        std::stringstream ss;
-        ss << "__" << vscp->varp()->shortName() + "__v";
-        // If the assignment is in the same scope as the variable, just
-        // use the temporary counter of the variable.
-        if (scopep == vscp->scopep()) {
-            ss << vscpInfo.m_nTmp++;
-        } else {
-            // Otherwise use the temporary counter of the scope of the assignment.
-            ss << scopep->user1Inc() << "_hierarchical";
-        }
-        return ss.str();
     }
 
     // Create a temporary variable in the given 'scopep', with the given 'name', and with 'dtypep'
@@ -560,7 +358,7 @@ class DelayedVisitor final : public VNVisitor {
     // Insert new statements before 'insertp'.
     // Returns a read reference to the temporary variable.
     AstVarRef* createWidened(FileLine* flp, AstScope* scopep, AstNodeDType* dtypep,
-                             AstNodeExpr* sLsbp, int sWidth, const std::string& name,
+                             AstNodeExpr* sLsbp, AstNodeExpr* sWidthp, const std::string& name,
                              AstNodeExpr* valuep, AstNode* insertp) {
         // Create temporary variable.
         AstVarScope* const tp = createTemp(flp, scopep, name, dtypep);
@@ -571,7 +369,7 @@ class DelayedVisitor final : public VNVisitor {
             new AstAssign{flp, new AstVarRef{flp, tp, VAccess::WRITE}, zerop});
         // Set the selected bits to 'valuep'
         AstSel* const selp = new AstSel{flp, new AstVarRef{flp, tp, VAccess::WRITE},
-                                        sLsbp->cloneTreePure(true), sWidth};
+                                        sLsbp->cloneTreePure(true), sWidthp->cloneTreePure(true)};
         insertp->addHereThisAsNext(new AstAssign{flp, selp, valuep});
         // This is the expression to get the value of the temporary
         return new AstVarRef{flp, tp, VAccess::READ};
@@ -586,23 +384,16 @@ class DelayedVisitor final : public VNVisitor {
         const std::string name = "__Vdly__" + vscp->varp()->shortName();
         AstVarScope* const shadowVscp = createTemp(flp, scopep, name, vscp->dtypep());
         vscpInfo.shadowVariableKit().vscp = shadowVscp;
-        // Mark both for V3LifePsot
-        vscp->optimizeLifePost(true);
-        shadowVscp->optimizeLifePost(true);
         // Create the AstActive for the Pre/Post logic
         AstActive* const activep = new AstActive{flp, "nba-shadow-variable", vscpInfo.senTreep()};
-        activep->senTreeStorep(vscpInfo.senTreep());
+        activep->sensesStorep(vscpInfo.senTreep());
         scopep->addBlocksp(activep);
         // Add 'Pre' scheduled 'shadowVariable = originalVariable' assignment
-        AstAlwaysPre* const prep = new AstAlwaysPre{flp};
-        activep->addStmtsp(prep);
-        prep->addStmtsp(new AstAssign{flp, new AstVarRef{flp, shadowVscp, VAccess::WRITE},
-                                      new AstVarRef{flp, vscp, VAccess::READ}});
+        activep->addStmtsp(new AstAssignPre{flp, new AstVarRef{flp, shadowVscp, VAccess::WRITE},
+                                            new AstVarRef{flp, vscp, VAccess::READ}});
         // Add 'Post' scheduled 'originalVariable = shadowVariable' assignment
-        AstAlwaysPost* const postp = new AstAlwaysPost{flp};
-        activep->addStmtsp(postp);
-        postp->addStmtsp(new AstAssign{flp, new AstVarRef{flp, vscp, VAccess::WRITE},
-                                       new AstVarRef{flp, shadowVscp, VAccess::READ}});
+        activep->addStmtsp(new AstAssignPost{flp, new AstVarRef{flp, vscp, VAccess::WRITE},
+                                             new AstVarRef{flp, shadowVscp, VAccess::READ}});
     }
     void convertSchemeShadowVar(AstAssignDly* nodep, AstVarScope* vscp, VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(vscpInfo.m_scheme == Scheme::ShadowVar, vscp, "Inconsistent NBA scheme");
@@ -617,70 +408,6 @@ class DelayedVisitor final : public VNVisitor {
         });
     }
 
-    // Scheme::ShadowVarMasked
-    void prepareSchemeShadowVarMasked(AstVarScope* vscp, VarScopeInfo& vscpInfo) {
-        UASSERT_OBJ(vscpInfo.m_scheme == Scheme::ShadowVarMasked, vscp, "Inconsistent NBA scheme");
-        FileLine* const flp = vscp->fileline();
-        AstScope* const scopep = vscp->scopep();
-        // Create the shadow variable
-        const std::string shadowName = "__Vdly__" + vscp->varp()->shortName();
-        AstVarScope* const shadowVscp = createTemp(flp, scopep, shadowName, vscp->dtypep());
-        vscpInfo.shadowVarMaskedKit().vscp = shadowVscp;
-        // Create the makk variable
-        const std::string maskName = "__VdlyMask__" + vscp->varp()->shortName();
-        AstVarScope* const maskVscp = createTemp(flp, scopep, maskName, vscp->dtypep());
-        maskVscp->varp()->setIgnorePostWrite();
-        vscpInfo.shadowVarMaskedKit().maskp = maskVscp;
-        // Create the AstActive for the Post logic
-        AstActive* const activep
-            = new AstActive{flp, "nba-shadow-var-masked", vscpInfo.senTreep()};
-        activep->senTreeStorep(vscpInfo.senTreep());
-        scopep->addBlocksp(activep);
-        // Add 'Post' scheduled process for the commit and mask clear
-        AstAlwaysPost* const postp = new AstAlwaysPost{flp};
-        activep->addStmtsp(postp);
-        // Add the commit - vscp = (shadowVscp & maskVscp) | (vscp & ~maskVscp);
-        postp->addStmtsp(new AstAssign{
-            flp, new AstVarRef{flp, vscp, VAccess::WRITE},
-            new AstOr{flp,
-                      new AstAnd{flp, new AstVarRef{flp, shadowVscp, VAccess::READ},
-                                 new AstVarRef{flp, maskVscp, VAccess::READ}},
-                      new AstAnd{flp, new AstVarRef{flp, vscp, VAccess::READ},
-                                 new AstNot{flp, new AstVarRef{flp, maskVscp, VAccess::READ}}}}});
-        vscp->varp()->setIgnorePostRead();
-        // Clar the mask - maskVscp = '0;
-        postp->addStmtsp(
-            new AstAssign{flp, new AstVarRef{flp, maskVscp, VAccess::WRITE},
-                          new AstConst{flp, AstConst::WidthedValue{}, maskVscp->width(), 0}});
-    }
-    void convertSchemeShadowVarMasked(AstAssignDly* nodep, AstVarScope* vscp,
-                                      VarScopeInfo& vscpInfo) {
-        UASSERT_OBJ(vscpInfo.m_scheme == Scheme::ShadowVarMasked, vscp, "Inconsistent NBA scheme");
-        AstVarScope* const shadowVscp = vscpInfo.shadowVarMaskedKit().vscp;
-        AstVarScope* const maskVscp = vscpInfo.shadowVarMaskedKit().maskp;
-
-        AstNodeExpr* lhsClonep = nodep->lhsp()->cloneTree(false);
-
-        // Replace the write ref on the LHS with the shadow variable
-        nodep->lhsp()->foreach([&](AstVarRef* const refp) {
-            if (!refp->access().isWriteOnly()) return;
-            UASSERT_OBJ(refp->varScopep() == vscp, nodep, "NBA not setting expected variable");
-            refp->varScopep(shadowVscp);
-            refp->varp(shadowVscp->varp());
-        });
-        // Set the same bits in the mask to 1
-        lhsClonep->foreach([&](AstVarRef* const refp) {
-            if (!refp->access().isWriteOnly()) return;
-            UASSERT_OBJ(refp->varScopep() == vscp, nodep, "NBA not setting expected variable");
-            refp->varScopep(maskVscp);
-            refp->varp(maskVscp->varp());
-        });
-        FileLine* const flp = nodep->fileline();
-        AstConst* const onesp = new AstConst{flp, AstConst::DTyped{}, lhsClonep->dtypep()};
-        onesp->num().setAllBits1();
-        nodep->addNextHere(new AstAssign{flp, lhsClonep, onesp});
-    }
-
     // Scheme::FlagShared
     void prepareSchemeFlagShared(AstVarScope* vscp, VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(vscpInfo.m_scheme == Scheme::FlagShared, vscp, "Inconsistent NBA scheme");
@@ -688,7 +415,7 @@ class DelayedVisitor final : public VNVisitor {
         AstScope* const scopep = vscp->scopep();
         // Create the AstActive for the Pre/Post logic
         AstActive* const activep = new AstActive{flp, "nba-flag-shared", vscpInfo.senTreep()};
-        activep->senTreeStorep(vscpInfo.senTreep());
+        activep->sensesStorep(vscpInfo.senTreep());
         scopep->addBlocksp(activep);
         vscpInfo.flagSharedKit().activep = activep;
         // Add 'Post' scheduled process to be populated later
@@ -702,10 +429,11 @@ class DelayedVisitor final : public VNVisitor {
     void convertSchemeFlagShared(AstAssignDly* nodep, AstVarScope* vscp, VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(vscpInfo.m_scheme == Scheme::FlagShared, vscp, "Inconsistent NBA scheme");
         FileLine* const flp = vscp->fileline();
-        AstScope* const scopep = VN_AS(nodep->user2p(), Scope);
+        AstScope* const scopep = vscp->scopep();
 
         // Base name suffix for signals constructed below
-        const std::string baseName = uniqueTmpName(scopep, vscp, vscpInfo);
+        const std::string baseName{"__" + vscp->varp()->shortName() + "__v"
+                                   + std::to_string(vscpInfo.m_nTmp++)};
 
         // Unlink and capture the RHS value
         AstNodeExpr* const capturedRhsp
@@ -727,8 +455,6 @@ class DelayedVisitor final : public VNVisitor {
             consecutive
             // ... that use the same scheme
             && prevVscpInfop->m_scheme == Scheme::FlagShared
-            // ... and are in the same scope as the target variable
-            && scopep == vscp->scopep()
             // ... and share the same overall update domain
             && prevVscpInfop->senTreep()->sameTree(vscpInfo.senTreep());
 
@@ -740,10 +466,9 @@ class DelayedVisitor final : public VNVisitor {
                 new AstAssign{flp, new AstVarRef{flp, flagVscp, VAccess::WRITE},
                               new AstConst{flp, AstConst::BitTrue{}}});
             // Add the 'Pre' scheduled reset for the flag
-            AstAlwaysPre* const prep = new AstAlwaysPre{flp};
-            vscpInfo.flagSharedKit().activep->addStmtsp(prep);
-            prep->addStmtsp(new AstAssign{flp, new AstVarRef{flp, flagVscp, VAccess::WRITE},
-                                          new AstConst{flp, AstConst::BitFalse{}}});
+            vscpInfo.flagSharedKit().activep->addStmtsp(
+                new AstAssignPre{flp, new AstVarRef{flp, flagVscp, VAccess::WRITE},
+                                 new AstConst{flp, AstConst::BitFalse{}}});
             // Add the 'Post' scheduled commit
             AstIf* const ifp = new AstIf{flp, new AstVarRef{flp, flagVscp, VAccess::READ}};
             vscpInfo.flagSharedKit().postp->addStmtsp(ifp);
@@ -786,7 +511,7 @@ class DelayedVisitor final : public VNVisitor {
         AstScope* const scopep = vscp->scopep();
         // Create the AstActive for the Pre/Post logic
         AstActive* const activep = new AstActive{flp, "nba-flag-unique", vscpInfo.senTreep()};
-        activep->senTreeStorep(vscpInfo.senTreep());
+        activep->sensesStorep(vscpInfo.senTreep());
         scopep->addBlocksp(activep);
         // Add 'Post' scheduled process to be populated later
         AstAlwaysPost* const postp = new AstAlwaysPost{flp};
@@ -796,10 +521,11 @@ class DelayedVisitor final : public VNVisitor {
     void convertSchemeFlagUnique(AstAssignDly* nodep, AstVarScope* vscp, VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(vscpInfo.m_scheme == Scheme::FlagUnique, vscp, "Inconsistent NBA scheme");
         FileLine* const flp = vscp->fileline();
-        AstScope* const scopep = VN_AS(nodep->user2p(), Scope);
+        AstScope* const scopep = vscp->scopep();
 
         // Base name suffix for signals constructed below
-        const std::string baseName = uniqueTmpName(scopep, vscp, vscpInfo);
+        const std::string baseName{"__" + vscp->varp()->shortName() + "__v"
+                                   + std::to_string(vscpInfo.m_nTmp++)};
 
         // Unlink and capture the RHS value
         AstNodeExpr* const capturedRhsp
@@ -834,7 +560,7 @@ class DelayedVisitor final : public VNVisitor {
     void prepareSchemeValueQueue(AstVarScope* vscp, VarScopeInfo& vscpInfo) {
         UASSERT_OBJ(N_Partial ? vscpInfo.m_scheme == Scheme::ValueQueuePartial
                               : vscpInfo.m_scheme == Scheme::ValueQueueWhole,
-                    vscp, "Inconsistent NBA scheme");
+                    vscp, "Inconsisten<t NBA s>cheme");
         FileLine* const flp = vscp->fileline();
         AstScope* const scopep = vscp->scopep();
 
@@ -850,7 +576,7 @@ class DelayedVisitor final : public VNVisitor {
         // Create the AstActive for the Post logic
         AstActive* const activep
             = new AstActive{flp, "nba-value-queue-whole", vscpInfo.senTreep()};
-        activep->senTreeStorep(vscpInfo.senTreep());
+        activep->sensesStorep(vscpInfo.senTreep());
         scopep->addBlocksp(activep);
         // Add 'Post' scheduled process for the commit
         AstAlwaysPost* const postp = new AstAlwaysPost{flp};
@@ -869,10 +595,11 @@ class DelayedVisitor final : public VNVisitor {
                             : vscpInfo.m_scheme == Scheme::ValueQueueWhole,
                     vscp, "Inconsistent NBA scheme");
         FileLine* const flp = vscp->fileline();
-        AstScope* const scopep = VN_AS(nodep->user2p(), Scope);
+        AstScope* const scopep = vscp->scopep();
 
         // Base name suffix for signals constructed below
-        const std::string baseName = uniqueTmpName(scopep, vscp, vscpInfo);
+        const std::string baseName{"__" + vscp->varp()->shortName() + "__v"
+                                   + std::to_string(vscpInfo.m_nTmp++)};
 
         // Unlink and capture the RHS value
         AstNodeExpr* const capturedRhsp
@@ -901,26 +628,27 @@ class DelayedVisitor final : public VNVisitor {
                 return dtypep;
             }();
 
-            if (const AstSel* const lSelp = VN_CAST(lhsNodep, Sel)) {
+            if (AstSel* const lSelp = VN_CAST(lhsNodep, Sel)) {
                 // This is a partial assignment.
                 // Need to create a mask and widen the value to element size.
                 lhsNodep = lSelp->fromp();
                 AstNodeExpr* const sLsbp = lSelp->lsbp();
-                const int sWidth = lSelp->widthConst();
+                AstConst* const sWidthp = VN_AS(lSelp->widthp(), Const);
 
                 // Create mask value
                 maskp = [&]() -> AstNodeExpr* {
                     // Constant mask we can compute here
-                    if (const AstConst* const cLsbp = VN_CAST(sLsbp, Const)) {
+                    if (AstConst* const cLsbp = VN_CAST(sLsbp, Const)) {
                         AstConst* const cp = new AstConst{flp, AstConst::DTyped{}, eDTypep};
-                        cp->num().setMask(sWidth, cLsbp->toSInt());
+                        cp->num().setMask(sWidthp->toSInt(), cLsbp->toSInt());
                         return cp;
                     }
 
                     // A non-constant mask we must compute at run-time.
-                    AstConst* const onesp = new AstConst{flp, AstConst::WidthedValue{}, sWidth, 0};
+                    AstConst* const onesp
+                        = new AstConst{flp, AstConst::WidthedValue{}, sWidthp->toSInt(), 0};
                     onesp->num().setAllBits1();
-                    return createWidened(flp, scopep, eDTypep, sLsbp, sWidth,
+                    return createWidened(flp, scopep, eDTypep, sLsbp, sWidthp,
                                          "__VdlyMask" + baseName, onesp, nodep);
                 }();
 
@@ -928,16 +656,17 @@ class DelayedVisitor final : public VNVisitor {
                 valuep = [&]() -> AstNodeExpr* {
                     // Constant value with constant select we can compute here
                     if (AstConst* const cValuep = VN_CAST(valuep, Const)) {
-                        if (const AstConst* const cLsbp = VN_CAST(sLsbp, Const)) {
+                        if (AstConst* const cLsbp = VN_CAST(sLsbp, Const)) {
                             AstConst* const cp = new AstConst{flp, AstConst::DTyped{}, eDTypep};
                             cp->num().setAllBits0();
-                            cp->num().opSelInto(cValuep->num(), cLsbp->toSInt(), sWidth);
+                            cp->num().opSelInto(cValuep->num(), cLsbp->toSInt(),
+                                                sWidthp->toSInt());
                             return cp;
                         }
                     }
 
                     // A non-constant value we must adjust.
-                    return createWidened(flp, scopep, eDTypep, sLsbp, sWidth,  //
+                    return createWidened(flp, scopep, eDTypep, sLsbp, sWidthp,  //
                                          "__VdlyElem" + baseName, valuep, nodep);
                 }();
             } else {
@@ -976,19 +705,51 @@ class DelayedVisitor final : public VNVisitor {
         pushDeletep(nodep->unlinkFrBack());
     }
 
-    // Record where a variable is assigned
-    void recordWriteRef(AstVarRef* nodep, bool nonBlocking) {
+    // Record and warn if a variable is assigned by both blocking and nonblocking assignments
+    void checkVarUsage(AstVarRef* nodep, bool nonBlocking) {
         // Ignore references in certain contexts
         if (m_ignoreBlkAndNBlk) return;
+        // Ignore if warning is disabled on this reference (used by V3Force).
+        if (nodep->fileline()->warnIsOff(V3ErrorCode::BLKANDNBLK)) return;
         // Ignore if it's an array
         // TODO: we do this because it used to be the previous behaviour.
         //       Is it still required, or should we warn for arrays as well?
         //       Scheduling is no different for them...
-        //       Clarification: This is OK for arrays of primitive types, but
-        //       arrays that use the ShadowVar scheme don't work...
         if (VN_IS(nodep->varScopep()->dtypep()->skipRefp(), UnpackArrayDType)) return;
 
-        m_writeRefs(nodep->varScopep()).emplace_back(nodep, nonBlocking, m_inNonCombLogic);
+        // Mark ref as blocking/non-blocking
+        nodep->user1(nonBlocking);
+
+        AstVarScope* const vscp = nodep->varScopep();
+
+        // Pick up/set the first reference to this variable
+        const AstVarRef* const firstRefp = VN_AS(vscp->user2p(), VarRef);
+        if (!firstRefp) {
+            vscp->user2p(nodep);
+            return;
+        }
+
+        // If both blocking/non-blocking, it's OK
+        if (firstRefp->user1() == static_cast<int>(nonBlocking)) return;
+
+        // Otherwise warn that both blocking and non-blocking assignments are used
+        const auto containingAssignment = [](const AstNode* nodep) -> const AstNode* {
+            while (!VN_IS(nodep, NodeAssign)) nodep = nodep->backp();
+            return nodep;
+        };
+
+        const AstNode* nonblockingp = nonBlocking ? nodep : firstRefp;
+        if (const AstNode* np = containingAssignment(nonblockingp)) nonblockingp = np;
+        const AstNode* blockingp = nonBlocking ? firstRefp : nodep;
+        if (const AstNode* np = containingAssignment(blockingp)) blockingp = np;
+        vscp->v3warn(BLKANDNBLK,
+                     "Unsupported: Blocked and non-blocking assignments to same variable: "
+                         << vscp->varp()->prettyNameQ() << '\n'
+                         << vscp->warnContextPrimary() << '\n'
+                         << blockingp->warnOther() << "... Location of blocking assignment\n"
+                         << blockingp->warnContextSecondary() << '\n'
+                         << nonblockingp->warnOther() << "... Location of nonblocking assignment\n"
+                         << nonblockingp->warnContextSecondary());
     }
 
     // VISITORS
@@ -1010,11 +771,6 @@ class DelayedVisitor final : public VNVisitor {
             case Scheme::ShadowVar: {
                 ++m_nSchemeShadowVar;
                 prepareSchemeShadowVar(vscp, vscpInfo);
-                break;
-            }
-            case Scheme::ShadowVarMasked: {
-                ++m_nSchemeShadowVarMasked;
-                prepareSchemeShadowVarMasked(vscp, vscpInfo);
                 break;
             }
             case Scheme::FlagShared: {
@@ -1060,10 +816,6 @@ class DelayedVisitor final : public VNVisitor {
                 convertSchemeShadowVar(nbap, vscp, vscpInfo);
                 break;
             }
-            case Scheme::ShadowVarMasked: {
-                convertSchemeShadowVarMasked(nbap, vscp, vscpInfo);
-                break;
-            }
             case Scheme::FlagShared: {
                 convertSchemeFlagShared(nbap, vscp, vscpInfo);
                 break;
@@ -1082,11 +834,7 @@ class DelayedVisitor final : public VNVisitor {
             }
         }
     }
-    void visit(AstScope* nodep) override {
-        VL_RESTORER(m_scopep);
-        m_scopep = nodep;
-        iterateChildren(nodep);
-    }
+    void visit(AstScope* nodep) override { iterateChildren(nodep); }
     void visit(AstCFunc* nodep) override {
         VL_RESTORER(m_cfuncp);
         m_cfuncp = nodep;
@@ -1096,11 +844,9 @@ class DelayedVisitor final : public VNVisitor {
         UASSERT_OBJ(!m_activep, nodep, "Should not nest");
         VL_RESTORER(m_activep);
         VL_RESTORER(m_ignoreBlkAndNBlk);
-        VL_RESTORER(m_inNonCombLogic);
         m_activep = nodep;
-        const AstSenTree* const senTreep = nodep->sentreep();
+        AstSenTree* const senTreep = nodep->sensesp();
         m_ignoreBlkAndNBlk = senTreep->hasStatic() || senTreep->hasInitial();
-        m_inNonCombLogic = senTreep->hasClocked();
         iterateChildren(nodep);
     }
     void visit(AstNodeProcedure* nodep) override {
@@ -1108,28 +854,21 @@ class DelayedVisitor final : public VNVisitor {
         {
             VL_RESTORER(m_inSuspendableOrFork);
             VL_RESTORER(m_procp);
-            VL_RESTORER(m_ignoreBlkAndNBlk);
-            VL_RESTORER(m_inNonCombLogic);
             m_inSuspendableOrFork = nodep->isSuspendable();
             m_procp = nodep;
-            if (m_inSuspendableOrFork) {
-                m_ignoreBlkAndNBlk = false;
-                m_inNonCombLogic = true;
-            }
             iterateChildren(nodep);
         }
         if (m_timingDomains.empty()) return;
 
         // There were some timing domains involved in the process. Add all of them as sensitivities
         // of all NBA targets in this process. Note this is a bit of a sledgehammer, we should only
-        // need those that directly precede the NBA in control flow, but that is hard to compute,
+        // need those that directly preceed the NBA in control flow, but that is hard to compute,
         // so we will hammer away.
 
         // First gather all senItems
         AstSenItem* senItemp = nullptr;
-        for (const AstSenTree* const domainp : m_timingDomains) {
-            if (domainp->sensesp())
-                senItemp = AstNode::addNext(senItemp, domainp->sensesp()->cloneTree(true));
+        for (AstSenTree* const domainp : m_timingDomains) {
+            senItemp = AstNode::addNext(senItemp, domainp->sensesp()->cloneTree(true));
         }
         m_timingDomains.clear();
         // Add them to all nba targets we gathered in this process
@@ -1145,7 +884,7 @@ class DelayedVisitor final : public VNVisitor {
         iterateChildren(nodep);
     }
     void visit(AstCAwait* nodep) override {
-        if (nodep->sentreep()) m_timingDomains.insert(nodep->sentreep());
+        if (nodep->sensesp()) m_timingDomains.insert(nodep->sensesp());
     }
     void visit(AstFireEvent* nodep) override {
         UASSERT_OBJ(v3Global.hasEvents(), nodep, "Inconsistent");
@@ -1161,7 +900,7 @@ class DelayedVisitor final : public VNVisitor {
 
         AstNode* newp = new AstCStmt{flp, blockp};
         if (nodep->isDelayed()) {
-            const AstVarRef* const vrefp = VN_AS(eventp, VarRef);
+            AstVarRef* const vrefp = VN_AS(eventp, VarRef);
             const std::string newvarname = "__Vdly__" + vrefp->varp()->shortName();
             AstVarScope* const dlyvscp
                 = createTemp(flp, vrefp->varScopep()->scopep(), newvarname, 1);
@@ -1170,9 +909,8 @@ class DelayedVisitor final : public VNVisitor {
                 return new AstVarRef{flp, dlyvscp, access};
             };
 
-            AstAlwaysPre* const prep = new AstAlwaysPre{flp};
-            prep->addStmtsp(new AstAssign{flp, dlyRef(VAccess::WRITE),
-                                          new AstConst{flp, AstConst::BitFalse{}}});
+            AstAssignPre* const prep = new AstAssignPre{flp, dlyRef(VAccess::WRITE),
+                                                        new AstConst{flp, AstConst::BitFalse{}}};
             AstAlwaysPost* const postp = new AstAlwaysPost{flp};
             {
                 AstIf* const ifp = new AstIf{flp, dlyRef(VAccess::READ)};
@@ -1181,7 +919,7 @@ class DelayedVisitor final : public VNVisitor {
             }
 
             UASSERT_OBJ(m_activep, nodep, "No active to handle FireEvent");
-            AstActive* const activep = new AstActive{flp, "nba-event", m_activep->sentreep()};
+            AstActive* const activep = new AstActive{flp, "nba-event", m_activep->sensesp()};
             m_activep->addNextHere(activep);
             activep->addStmtsp(prep);
             activep->addStmtsp(postp);
@@ -1206,18 +944,13 @@ class DelayedVisitor final : public VNVisitor {
         }
         UASSERT_OBJ(m_procp, nodep, "Delayed assignment not under process");
         UASSERT_OBJ(m_activep, nodep, "<= not under sensitivity block");
-        UASSERT_OBJ(m_scopep, nodep, "<= not under scope");
         UASSERT_OBJ(m_inSuspendableOrFork || m_activep->hasClocked(), nodep,
                     "<= assignment in non-clocked block, should have been converted in V3Active");
-
-        // Record scope of this NBA
-        nodep->user2p(m_scopep);
 
         // Grab the reference to the target of the NBA, also lift ExprStmt statements on the LHS
         VL_RESTORER(m_currNbaLhsRefp);
         UASSERT_OBJ(!m_currNbaLhsRefp, nodep, "NBAs should not nest");
         nodep->lhsp()->foreach([&](AstNode* currp) {
-            // cppcheck-suppress constVariablePointer
             if (AstExprStmt* const exprp = VN_CAST(currp, ExprStmt)) {
                 // Move statements before the NBA
                 nodep->addHereThisAsNext(exprp->stmtsp()->unlinkFrBackWithNext());
@@ -1254,7 +987,7 @@ class DelayedVisitor final : public VNVisitor {
         vscpInfo.m_inLoop |= m_inLoop;
         vscpInfo.m_inSuspOrFork |= m_inSuspendableOrFork;
         // Sensitivity might be non-clocked, in a suspendable process, which are handled elsewhere
-        if (m_activep->sentreep()->hasClocked()) {
+        if (m_activep->sensesp()->hasClocked()) {
             if (vscpInfo.m_fistActivep != m_activep) {
                 AstVar* const varp = vscp->varp();
                 if (!varp->user1SetOnce()
@@ -1271,7 +1004,7 @@ class DelayedVisitor final : public VNVisitor {
                 }
             }
             // Add this sensitivity to the variable
-            vscpInfo.addSensitivity(m_activep->sentreep());
+            vscpInfo.addSensitivity(m_activep->sensesp());
         }
 
         // Record the NBA for later processing
@@ -1280,8 +1013,8 @@ class DelayedVisitor final : public VNVisitor {
         nba.nodep = nodep;
         nba.vscp = vscp;
 
-        // Record write reference
-        recordWriteRef(m_currNbaLhsRefp, true);
+        // Check var usage
+        checkVarUsage(m_currNbaLhsRefp, true);
 
         iterateChildren(nodep);
     }
@@ -1290,8 +1023,14 @@ class DelayedVisitor final : public VNVisitor {
         if (nodep == m_currNbaLhsRefp) return;
         // Only care about write refs
         if (!nodep->access().isWriteOrRW()) return;
-        // Record write reference
-        recordWriteRef(nodep, false);
+        // Check var usage
+        checkVarUsage(nodep, false);
+    }
+    void visit(AstNodeReadWriteMem* nodep) override {
+        VL_RESTORER(m_ignoreBlkAndNBlk);
+        // $readmem/$writemem often used in mem models so we suppress BLKANDNBLK warnings
+        m_ignoreBlkAndNBlk = true;
+        iterateChildren(nodep);
     }
     void visit(AstNodeFor* nodep) override {  // LCOV_EXCL_LINE
         nodep->v3fatalSrc("For statements should have been converted to while statements");
@@ -1303,7 +1042,8 @@ class DelayedVisitor final : public VNVisitor {
     }
 
     // Pre/Post logic are created here and their content need no further changes, so ignore.
-    void visit(AstAlwaysPre*) override {}
+    void visit(AstAssignPre*) override {}
+    void visit(AstAssignPost*) override {}
     void visit(AstAlwaysPost*) override {}
 
     //--------------------
@@ -1314,7 +1054,6 @@ public:
     explicit DelayedVisitor(AstNetlist* nodep) { iterate(nodep); }
     ~DelayedVisitor() override {
         V3Stats::addStat("NBA, variables using ShadowVar scheme", m_nSchemeShadowVar);
-        V3Stats::addStat("NBA, variables using ShadowVarMasked scheme", m_nSchemeShadowVarMasked);
         V3Stats::addStat("NBA, variables using FlagShared scheme", m_nSchemeFlagShared);
         V3Stats::addStat("NBA, variables using FlagUnique scheme", m_nSchemeFlagUnique);
         V3Stats::addStat("NBA, variables using ValueQueueWhole scheme", m_nSchemeValueQueuesWhole);
@@ -1328,7 +1067,7 @@ public:
 // Delayed class functions
 
 void V3Delayed::delayedAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DelayedVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("delayed", 0, dumpTreeEitherLevel() >= 3);
 }

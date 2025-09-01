@@ -71,20 +71,18 @@ module Test (/*AUTOARG*/
       dly1 <= dly0;
       dly2 <= dly1;
       dly3 <= dly2;
-      if ($time > 40) begin
-         // $past(expression, ticks, expression, clocking)
-         // In clock expression
-         if (dly0 != $past(in)) $stop;
-         if (dly0 != $past(in,)) $stop;
-         if (dly1 != $past(in, 2)) $stop;
-         if (dly1 != $past(in, 2, )) $stop;
-         if (dly1 != $past(in, 2, , )) $stop;
-         // $sampled(expression) -> expression
-         if (in != $sampled(in)) $stop;
-      end
+      // $past(expression, ticks, expression, clocking)
+      // In clock expression
+      if (dly0 != $past(in)) $stop;
+      if (dly0 != $past(in,)) $stop;
+      if (dly1 != $past(in, 2)) $stop;
+      if (dly1 != $past(in, 2, )) $stop;
+      if (dly1 != $past(in, 2, , )) $stop;
+      // $sampled(expression) -> expression
+      if (in != $sampled(in)) $stop;
    end
 
-   assert property (@(posedge clk) $time < 40 || dly0 == $past(in));
+   assert property (@(posedge clk) dly0 == $past(in));
 
 endmodule
 

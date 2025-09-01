@@ -15,12 +15,11 @@ class C;
 endclass
 
 module tb_top();
-   A a[6](), b[7](), f[6]();
+   A a[6](), b[7]();
    C c, d, e;
    a_array_t g;
 
    initial begin
-      a = f;
 
       c = new();
       c.vif = b;

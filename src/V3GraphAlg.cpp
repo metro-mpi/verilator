@@ -29,7 +29,6 @@
 #include <algorithm>
 #include <list>
 #include <map>
-#include <numeric>
 #include <vector>
 
 VL_DEFINE_DEBUG_FUNCTIONS;
@@ -282,7 +281,8 @@ class GraphAlgRank final : GraphAlg<> {
         // If larger rank is found, assign it and loop back through
         // If we hit a back node make a list of all loops
         if (vertexp->user() == 1) {
-            m_graphp->loopsMessageCb(vertexp, m_edgeFuncp);
+            m_graphp->reportLoops(m_edgeFuncp, vertexp);
+            m_graphp->loopsMessageCb(vertexp);
             return;  // LCOV_EXCL_LINE  // gcc gprof bug misses this return
         }
         if (vertexp->rank() >= currentRank) return;  // Already processed it
@@ -313,7 +313,6 @@ void V3Graph::rank(V3EdgeFuncP edgeFuncp) { GraphAlgRank{this, edgeFuncp}; }
 
 class GraphAlgRLoops final : GraphAlg<> {
     std::vector<V3GraphVertex*> m_callTrace;  // List of everything we hit processing so far
-    std::vector<string> m_msgs;  // Output messages
     bool m_done = false;  // Exit algorithm
 
     void main(V3GraphVertex* vertexp) {
@@ -334,8 +333,9 @@ class GraphAlgRLoops final : GraphAlg<> {
         m_callTrace[currentRank++] = vertexp;
 
         if (vertexp->user() == 1) {
-            for (unsigned i = 0; i < currentRank; i++)
-                m_msgs.emplace_back(m_graphp->loopsVertexCb(m_callTrace[i]));
+            for (unsigned i = 0; i < currentRank; i++) {  //
+                m_graphp->loopsVertexCb(m_callTrace[i]);
+            }
             m_done = true;
             return;
         }
@@ -353,13 +353,10 @@ public:
         main(vertexp);
     }
     ~GraphAlgRLoops() = default;
-    string message() const {
-        return std::accumulate(m_msgs.begin(), m_msgs.end(), std::string{""});
-    }
 };
 
-string V3Graph::reportLoops(V3EdgeFuncP edgeFuncp, V3GraphVertex* vertexp) {
-    return GraphAlgRLoops{this, edgeFuncp, vertexp}.message();
+void V3Graph::reportLoops(V3EdgeFuncP edgeFuncp, V3GraphVertex* vertexp) {
+    GraphAlgRLoops{this, edgeFuncp, vertexp};
 }
 
 //######################################################################
@@ -428,13 +425,13 @@ struct GraphSortEdgeCmp final {
 
 void V3Graph::sortVertices() {
     // Sort list of vertices by rank, then fanout
-    std::vector<V3GraphVertex*> vertexps;
-    for (V3GraphVertex& vertex : m_vertices) vertexps.push_back(&vertex);
-    std::stable_sort(vertexps.begin(), vertexps.end(), GraphSortVertexCmp());
+    std::vector<V3GraphVertex*> vertices;
+    for (V3GraphVertex& vertex : m_vertices) vertices.push_back(&vertex);
+    std::stable_sort(vertices.begin(), vertices.end(), GraphSortVertexCmp());
     // Re-insert in sorted order
-    for (V3GraphVertex* const vertexp : vertexps) {
-        m_vertices.unlink(vertexp);
-        m_vertices.linkBack(vertexp);
+    for (V3GraphVertex* const ip : vertices) {
+        m_vertices.unlink(ip);
+        m_vertices.linkBack(ip);
     }
 }
 
@@ -462,7 +459,7 @@ void V3Graph::sortEdges() {
 //              (Results in better dcache packing.)
 
 void V3Graph::order() {
-    UINFO(2, "Order:");
+    UINFO(2, "Order:\n");
 
     // Compute rankings again
     rank(&V3GraphEdge::followAlwaysTrue);

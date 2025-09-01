@@ -6,7 +6,7 @@
 
 class Cls;
    task bar;
-      static int qux;
+      int qux;
       qux <= '1;
    endtask
 endclass

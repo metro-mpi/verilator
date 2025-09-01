@@ -129,6 +129,9 @@ class EmitXmlFileVisitor final : public VNVisitorConst {
     void visit(AstWhile* nodep) override {
         outputTag(nodep, "while");
         puts(">\n");
+        puts("<begin>\n");
+        iterateAndNextConstNull(nodep->precondsp());
+        puts("</begin>\n");
         if (nodep->condp()) {
             puts("<begin>\n");
             iterateAndNextConstNull(nodep->condp());
@@ -252,11 +255,6 @@ class EmitXmlFileVisitor final : public VNVisitorConst {
         putsQuoted(nodep->funcp() ? nodep->funcp()->name() : nodep->name());
         outputChildrenEnd(nodep, "");
     }
-    void visit(AstSel* nodep) override {
-        outputTag(nodep, "");
-        puts(" widthConst=\"" + cvtToStr(nodep->widthConst()) + "\"");
-        outputChildrenEnd(nodep, "");
-    }
 
     // Data types
     void visit(AstBasicDType* nodep) override {
@@ -357,8 +355,8 @@ public:
         // Xml output
         m_os << "<module_files>\n";
         for (const FileLine* ifp : m_nodeModules) {
-            m_os << "<file id=\"" << ifp->filenameLetters() << "\" filename=\""
-                 << ifp->filenameEsc() << "\" language=\"" << ifp->language().ascii() << "\"/>\n";
+            m_os << "<file id=\"" << ifp->filenameLetters() << "\" filename=\"" << ifp->filename()
+                 << "\" language=\"" << ifp->language().ascii() << "\"/>\n";
         }
         m_os << "</module_files>\n";
     }
@@ -384,8 +382,9 @@ class HierCellsXmlVisitor final : public VNVisitorConst {
             && nodep->level() <= 2) {  // ==2 because we don't add wrapper when in XML mode
             m_os << "<cells>\n";
             m_os << "<cell " << nodep->fileline()->xmlDetailedLocation()  //
-                 << " name=\"" << nodep->prettyName() << "\"" << " submodname=\""
-                 << nodep->prettyName() << "\"" << " hier=\"" << nodep->prettyName() << "\"";
+                 << " name=\"" << nodep->prettyName() << "\""
+                 << " submodname=\"" << nodep->prettyName() << "\""
+                 << " hier=\"" << nodep->prettyName() << "\"";
             m_hier = nodep->prettyName() + ".";
             m_hasChildren = false;
             iterateChildrenConst(nodep);
@@ -401,8 +400,9 @@ class HierCellsXmlVisitor final : public VNVisitorConst {
         if (nodep->modp() && nodep->modp()->dead()) return;
         if (!m_hasChildren) m_os << ">\n";
         m_os << "<cell " << nodep->fileline()->xmlDetailedLocation() << " name=\"" << nodep->name()
-             << "\"" << " submodname=\"" << nodep->modName() << "\"" << " hier=\""
-             << m_hier + nodep->name() << "\"";
+             << "\""
+             << " submodname=\"" << nodep->modName() << "\""
+             << " hier=\"" << m_hier + nodep->name() << "\"";
         const std::string hier = m_hier;
         m_hier += nodep->name() + ".";
         m_hasChildren = false;
@@ -436,7 +436,7 @@ public:
 // EmitXml class functions
 
 void V3EmitXml::emitxml() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     // All-in-one file
     const string filename = (v3Global.opt.xmlOutput().empty()
                                  ? v3Global.opt.makeDir() + "/" + v3Global.opt.prefix() + ".xml"

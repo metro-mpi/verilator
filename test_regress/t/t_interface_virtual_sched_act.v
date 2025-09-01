@@ -8,8 +8,10 @@ interface Bus;
   logic [15:0] data;
 endinterface
 
-module t_sched_act;
-  logic clk = 0;
+module t (
+    clk
+);
+  input clk;
   integer cyc = 0;
   Bus intf();
   virtual Bus vif = intf;
@@ -21,10 +23,10 @@ module t_sched_act;
 
   // Finish on negedge so that $finish is last
   always @(negedge clk)
-    if (cyc >= 6) begin
-    $write("*-* All Finished *-*\n");
-    $finish;
-  end
+    if (cyc >= 5) begin
+      $write("*-* All Finished *-*\n");
+      $finish;
+    end
 
   always @(posedge clk or data) begin
     if (cyc == 1) intf.data <= 'hdead;
@@ -33,15 +35,6 @@ module t_sched_act;
     else if (cyc == 4) intf.data <= 'hcafe;
   end
 
-  always @(negedge clk) begin
-    data <= vif.data;
-  end
-
-  always @(data) begin
-    $write("[%0t] data==%h\n", $time, data);
-  end
-
-  initial begin
-    repeat (10) #5ns clk = ~clk;
-  end
+  assign data = vif.data;
+  always_comb $write("[%0t] data==%h\n", $time, data);
 endmodule

@@ -81,11 +81,10 @@ class DeadVisitor final : public VNVisitor {
     // METHODS
 
     void deleting(AstNode* nodep) {
-        UINFO(9, "  deleting " << nodep);
+        UINFO(9, "  deleting " << nodep << endl);
         VL_DO_DANGLING(pushDeletep(nodep->unlinkFrBack()), nodep);
     }
 
-    // cppcheck-suppress constParameterPointer
     void checkAll(AstNode* nodep) {
         if (AstNode* const subnodep = nodep->dtypep()) {
             if (nodep != subnodep  // Not NodeDTypes reference themselves
@@ -335,8 +334,8 @@ class DeadVisitor final : public VNVisitor {
             checkAll(typedefp);
         }
     }
-    bool shouldDeleteTypedef(const AstTypedef* typedefp) {
-        if (const auto* const structp = VN_CAST(typedefp->subDTypep(), NodeUOrStructDType)) {
+    bool shouldDeleteTypedef(AstTypedef* typedefp) {
+        if (auto* const structp = VN_CAST(typedefp->subDTypep(), NodeUOrStructDType)) {
             if (structp->user1() && !structp->packed()) return false;
         }
         return m_elimCells && !typedefp->attrPublic();
@@ -354,7 +353,7 @@ class DeadVisitor final : public VNVisitor {
                 if (modp->dead()
                     || (modp->level() > 2 && modp->user1() == 0 && !modp->internal())) {
                     // > 2 because L1 is the wrapper, L2 is the top user module
-                    UINFO(4, "  Dead module " << modp);
+                    UINFO(4, "  Dead module " << modp << endl);
                     // And its children may now be killable too; correct counts
                     // Recurse, as cells may not be directly under the module but in a generate
                     if (!modp->dead()) {  // If was dead didn't increment user1's
@@ -368,7 +367,7 @@ class DeadVisitor final : public VNVisitor {
             }
         }
     }
-    bool mightElimVar(const AstVar* nodep) const {
+    bool mightElimVar(AstVar* nodep) const {
         if (nodep->isSigPublic()) return false;  // Can't elim publics!
         if (nodep->isIO() || nodep->isClassMember() || nodep->sensIfacep()) return false;
         if (nodep->isTemp() && !nodep->isTrace()) return true;
@@ -383,7 +382,7 @@ class DeadVisitor final : public VNVisitor {
                 AstScope* const scp = *it;
                 if (!scp) continue;
                 if (scp->user1() == 0) {
-                    UINFO(4, "  Dead AstScope " << scp);
+                    UINFO(4, "  Dead AstScope " << scp << endl);
                     scp->aboveScopep()->user1Inc(-1);
                     if (scp->dtypep()) scp->dtypep()->user1Inc(-1);
                     deleting(scp);
@@ -423,12 +422,12 @@ class DeadVisitor final : public VNVisitor {
         // Delete any unused varscopes
         for (AstVarScope* vscp : m_vscsp) {
             if (vscp->user1() == 0) {
-                UINFO(4, "  Dead " << vscp);
+                UINFO(4, "  Dead " << vscp << endl);
                 const std::pair<AssignMap::iterator, AssignMap::iterator> eqrange
                     = m_assignMap.equal_range(vscp);
                 for (AssignMap::iterator itr = eqrange.first; itr != eqrange.second; ++itr) {
                     AstNodeAssign* const assp = itr->second;
-                    UINFO(4, "    Dead assign " << assp);
+                    UINFO(4, "    Dead assign " << assp << endl);
                     assp->dtypep()->user1Inc(-1);
                     deleting(assp);
                 }
@@ -443,7 +442,7 @@ class DeadVisitor final : public VNVisitor {
                 AstVar* const varp = *it;
                 if (!varp) continue;
                 if (varp->user1() == 0) {
-                    UINFO(4, "  Dead " << varp);
+                    UINFO(4, "  Dead " << varp << endl);
                     if (varp->dtypep()) varp->dtypep()->user1Inc(-1);
                     deleting(varp);
                     *it = nullptr;
@@ -474,9 +473,7 @@ class DeadVisitor final : public VNVisitor {
         }
     }
 
-    // cppcheck-suppress constParameterPointer
     void preserveTopIfaces(AstNetlist* rootp) {
-        // cppcheck-suppress constVariablePointer
         for (AstNodeModule* modp = rootp->modulesp(); modp && modp->level() <= 2;
              modp = VN_AS(modp->nextp(), NodeModule)) {
             for (AstNode* subnodep = modp->stmtsp(); subnodep; subnodep = subnodep->nextp()) {
@@ -556,7 +553,7 @@ public:
 // Dead class functions
 
 void V3Dead::deadifyModules(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     {  // node, elimUserVars, elimDTypes, elimScopes, elimCells, elimTopIfaces
         DeadVisitor{nodep, false, false, false, false, !v3Global.opt.topIfacesSupported()};
     }  // Destruct before checking
@@ -564,25 +561,25 @@ void V3Dead::deadifyModules(AstNetlist* nodep) {
 }
 
 void V3Dead::deadifyDTypes(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DeadVisitor{nodep, false, true, false, false, false}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("deadDtypes", 0, dumpTreeEitherLevel() >= 3);
 }
 
 void V3Dead::deadifyDTypesScoped(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DeadVisitor{nodep, false, true, true, false, false}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("deadDtypesScoped", 0, dumpTreeEitherLevel() >= 3);
 }
 
 void V3Dead::deadifyAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DeadVisitor{nodep, true, true, false, true, false}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("deadAll", 0, dumpTreeEitherLevel() >= 3);
 }
 
 void V3Dead::deadifyAllScoped(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { DeadVisitor{nodep, true, true, true, true, false}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("deadAllScoped", 0, dumpTreeEitherLevel() >= 3);
 }

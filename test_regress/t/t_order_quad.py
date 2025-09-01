@@ -11,9 +11,7 @@ import vltest_bootstrap
 
 test.scenarios('simulator')
 
-test.compile(make_top_shell=False,
-             make_main=False,
-             verilator_flags2=["--exe", test.pli_filename, "-fno-dfg"])
+test.compile(make_top_shell=False, make_main=False, verilator_flags2=["--exe", test.pli_filename])
 
 test.execute()
 

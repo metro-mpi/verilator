@@ -6,7 +6,7 @@
 # Version 2.0.
 # SPDX-License-Identifier: LGPL-3.0-only OR Artistic-2.0
 
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
@@ -48,8 +48,7 @@ RUN git clone "${REPO}" verilator && \
     make && \
     make install && \
     cd .. && \
-    rm -r verilator && \
-    ccache -C
+    rm -r verilator
 
 COPY verilator-wrap.sh /usr/local/bin/verilator-wrap.sh
 

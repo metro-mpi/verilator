@@ -23,7 +23,6 @@
 class AstClass;
 class AstFunc;
 class AstNetlist;
-class AstNodeModule;
 
 class VMemberMap;
 
@@ -35,8 +34,6 @@ public:
                                      const std::string& name = "randomize",
                                      bool allowVirtual = true,
                                      bool childDType = false) VL_MT_DISABLED;
-    static AstFunc* newRandomizeStdFunc(VMemberMap& memberMap, AstNodeModule* nodep,
-                                        const std::string& name) VL_MT_DISABLED;
     static AstFunc* newSRandomFunc(VMemberMap& memberMap, AstClass* nodep) VL_MT_DISABLED;
 };
 

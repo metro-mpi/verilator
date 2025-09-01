@@ -39,21 +39,11 @@ class CMakeEmitter final {
     template <typename T_List>
     static string cmake_list(const T_List& strs) {
         string s;
-        for (const std::string& itr : strs) {
-            if (!s.empty()) s += ' ';
+        for (auto it = strs.begin(); it != strs.end(); ++it) {
             s += '"';
-            s += V3OutFormatter::quoteNameControls(itr);
+            s += V3OutFormatter::quoteNameControls(*it);
             s += '"';
-        }
-        return s;
-    }
-    static string cmake_list(const VFileLibList& strs) {
-        string s;
-        for (const VFileLibName& itr : strs) {
-            if (!s.empty()) s += ' ';
-            s += '"';
-            s += V3OutFormatter::quoteNameControls(itr.filename());
-            s += '"';
+            if (it != strs.end()) s += ' ';
         }
         return s;
     }
@@ -191,22 +181,20 @@ class CMakeEmitter final {
                 *of << "target_link_libraries(${TOP_TARGET_NAME}  PRIVATE " << prefix << ")\n";
                 if (!children.empty()) {
                     *of << "target_link_libraries(" << prefix << " INTERFACE";
-                    for (const V3HierBlock* const childp : children) {
-                        *of << " " << childp->hierPrefix();
-                    }
+                    for (const auto& childr : children) *of << " " << (childr)->hierPrefix();
                     *of << ")\n";
                 }
                 *of << "verilate(" << prefix << " PREFIX " << prefix << " TOP_MODULE "
                     << hblockp->modp()->name() << " DIRECTORY "
                     << v3Global.opt.makeDir() + "/" + prefix << " SOURCES ";
-                for (const V3HierBlock* const childp : children) {
-                    *of << " " << v3Global.opt.makeDir() + "/" + childp->hierWrapperFilename(true);
+                for (const auto& childr : children) {
+                    *of << " " << v3Global.opt.makeDir() + "/" + childr->hierWrapperFilename(true);
                 }
                 *of << " ";
                 const string vFile = hblockp->vFileIfNecessary();
                 if (!vFile.empty()) *of << vFile << " ";
-                for (const auto& i : v3Global.opt.vFiles())
-                    *of << V3Os::filenameRealPath(i.filename()) << " ";
+                const V3StringList& vFiles = v3Global.opt.vFiles();
+                for (const string& i : vFiles) *of << V3Os::filenameRealPath(i) << " ";
                 *of << " VERILATOR_ARGS ";
                 *of << "-f " << hblockp->commandArgsFilename(true)
                     << " -CFLAGS -fPIC"  // hierarchical block will be static, but may be linked
@@ -233,6 +221,6 @@ public:
 };
 
 void V3EmitCMake::emit() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     const CMakeEmitter emitter;
 }

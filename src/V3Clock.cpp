@@ -68,9 +68,8 @@ public:
 
 class ClockVisitor final : public VNVisitor {
     // NODE STATE
-
     // STATE
-    AstCFunc* const m_evalp = nullptr;  // The '_eval' function
+    AstCFunc* m_evalp = nullptr;  // The '_eval' function
     AstSenTree* m_lastSenp = nullptr;  // Last sensitivity match, so we can detect duplicates.
     AstIf* m_lastIfp = nullptr;  // Last sensitivity if active to add more under
 
@@ -80,17 +79,15 @@ class ClockVisitor final : public VNVisitor {
         AstNodeExpr* senEqnp = nullptr;
         for (AstSenItem* senp = nodesp; senp; senp = VN_AS(senp->nextp(), SenItem)) {
             UASSERT_OBJ(senp->edgeType() == VEdgeType::ET_TRUE, senp, "Should have been lowered");
-            if (senp->sensp()) {
-                AstNodeExpr* const senOnep = senp->sensp()->cloneTree(false);
-                senEqnp = senEqnp ? new AstOr{senp->fileline(), senEqnp, senOnep} : senOnep;
-            }
+            AstNodeExpr* const senOnep = senp->sensp()->cloneTree(false);
+            senEqnp = senEqnp ? new AstOr{senp->fileline(), senEqnp, senOnep} : senOnep;
         }
         return senEqnp;
     }
-    AstIf* makeActiveIf(AstSenTree* sentreep) {
-        AstNodeExpr* const senEqnp = createSenseEquation(sentreep->sensesp());
-        UASSERT_OBJ(senEqnp, sentreep, "No sense equation, shouldn't be in sequent activation.");
-        AstIf* const newifp = new AstIf{sentreep->fileline(), senEqnp};
+    AstIf* makeActiveIf(AstSenTree* sensesp) {
+        AstNodeExpr* const senEqnp = createSenseEquation(sensesp->sensesp());
+        UASSERT_OBJ(senEqnp, sensesp, "No sense equation, shouldn't be in sequent activation.");
+        AstIf* const newifp = new AstIf{sensesp->fileline(), senEqnp};
         return newifp;
     }
     void clearLastSen() {
@@ -99,23 +96,21 @@ class ClockVisitor final : public VNVisitor {
     }
     // VISITORS
     void visit(AstCoverToggle* nodep) override {
-        // UINFOTREE(1, nodep, "", "ct");
+        // nodep->dumpTree("-  ct: ");
         // COVERTOGGLE(INC, ORIG, CHANGE) ->
         //   IF(ORIG ^ CHANGE) { INC; CHANGE = ORIG; }
-        AstCoverInc* const incp = nodep->incp()->unlinkFrBack();
+        AstNode* const incp = nodep->incp()->unlinkFrBack();
         AstNodeExpr* const origp = nodep->origp()->unlinkFrBack();
         AstNodeExpr* const changeWrp = nodep->changep()->unlinkFrBack();
         AstNodeExpr* const changeRdp = ConvertWriteRefsToRead::main(changeWrp->cloneTree(false));
         AstNodeExpr* comparedp = nullptr;
-        incp->toggleExprp(origp->cloneTree(false));
-        incp->toggleCovExprp(changeRdp->cloneTree(false));
         // Xor will optimize better than Eq, when CoverToggle has bit selects,
         // but can only use Xor with non-opaque types
         if (const AstBasicDType* const bdtypep
             = VN_CAST(origp->dtypep()->skipRefp(), BasicDType)) {
             if (!bdtypep->isOpaque()) comparedp = new AstXor{nodep->fileline(), origp, changeRdp};
         }
-        if (!comparedp) comparedp = AstNeq::newTyped(nodep->fileline(), origp, changeRdp);
+        if (!comparedp) comparedp = AstEq::newTyped(nodep->fileline(), origp, changeRdp);
         AstIf* const newp = new AstIf{nodep->fileline(), comparedp, incp};
         // We could add another IF to detect posedges, and only increment if so.
         // It's another whole branch though versus a potential memory miss.
@@ -135,11 +130,11 @@ class ClockVisitor final : public VNVisitor {
         AstNode* const stmtsp = nodep->stmtsp()->unlinkFrBackWithNext();
 
         // Create 'if' statement, if needed
-        if (!m_lastSenp || !nodep->sentreep()->sameTree(m_lastSenp)) {
+        if (!m_lastSenp || !nodep->sensesp()->sameTree(m_lastSenp)) {
             VNRelinker relinker;
             nodep->unlinkFrBack(&relinker);
             clearLastSen();
-            m_lastSenp = nodep->sentreep();
+            m_lastSenp = nodep->sensesp();
             // Make a new if statement
             m_lastIfp = makeActiveIf(m_lastSenp);
             relinker.relink(m_lastIfp);
@@ -179,8 +174,8 @@ class ClockVisitor final : public VNVisitor {
 
 public:
     // CONSTRUCTORS
-    explicit ClockVisitor(AstNetlist* netlistp)
-        : m_evalp{netlistp->evalp()} {
+    explicit ClockVisitor(AstNetlist* netlistp) {
+        m_evalp = netlistp->evalp();
         // Simplify all SenTrees
         for (AstSenTree* senTreep = netlistp->topScopep()->senTreesp(); senTreep;
              senTreep = VN_AS(senTreep->nextp(), SenTree)) {
@@ -195,7 +190,7 @@ public:
 // Clock class functions
 
 void V3Clock::clockAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { ClockVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("clock", 0, dumpTreeEitherLevel() >= 3);
 }

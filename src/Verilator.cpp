@@ -42,7 +42,6 @@
 #include "V3DepthBlock.h"
 #include "V3Descope.h"
 #include "V3DfgOptimizer.h"
-#include "V3DiagSarif.h"
 #include "V3EmitC.h"
 #include "V3EmitCMain.h"
 #include "V3EmitCMake.h"
@@ -78,6 +77,7 @@
 #include "V3Order.h"
 #include "V3Os.h"
 #include "V3Param.h"
+#include "V3ParseSym.h"
 #include "V3PreShell.h"
 #include "V3Premit.h"
 #include "V3ProtectLib.h"
@@ -119,7 +119,6 @@ V3Global v3Global;
 
 static void reportStatsIfEnabled() {
     if (v3Global.opt.stats()) {
-        FileLine::stats();
         V3Stats::statsFinalAll(v3Global.rootp());
         V3Stats::statsReport();
     }
@@ -406,11 +405,6 @@ static void process() {
             // forcing.
             V3Force::forceAll(v3Global.rootp());
 
-            if (v3Global.opt.fDfgScoped()) {
-                // Scoped DFG optimization
-                V3DfgOptimizer::optimize(v3Global.rootp(), "scoped");
-            }
-
             // Gate-based logic elimination; eliminate signals and push constant across cell
             // boundaries Instant propagation makes lots-o-constant reduction possibilities.
             if (v3Global.opt.fGate()) {
@@ -650,11 +644,11 @@ static void process() {
 
     // Final statistics
     if (v3Global.opt.stats()) V3Stats::statsStage("emit");
+    reportStatsIfEnabled();
 }
 
-static bool verilate(const string& argString) {
-    // Run verilation, and return false if skipped
-    UINFO(1, "Option --verilate: Start Verilation");
+static void verilate(const string& argString) {
+    UINFO(1, "Option --verilate: Start Verilation\n");
 
     // Can we skip doing everything if times are ok?
     V3File::addSrcDepend(v3Global.opt.buildDepBin());
@@ -662,8 +656,8 @@ static bool verilate(const string& argString) {
         && V3File::checkTimes(v3Global.opt.hierTopDataDir() + "/" + v3Global.opt.prefix()
                                   + "__verFiles.dat",
                               argString)) {
-        UINFO(1, "--skip-identical: No change to any source files, exiting");
-        return false;
+        UINFO(1, "--skip-identical: No change to any source files, exiting\n");
+        return;
     }
     // Undocumented debugging - cannot be a switch as then command line
     // would mismatch forcing non-identicalness when we set it
@@ -692,7 +686,6 @@ static bool verilate(const string& argString) {
     if (v3Global.opt.debugSelfTest()) {
         V3Os::selfTest();
         V3Number::selfTest();
-        VString::selfTest();
         VHashSha256::selfTest();
         VSpellCheck::selfTest();
         V3Graph::selfTest();
@@ -703,7 +696,7 @@ static bool verilate(const string& argString) {
         V3PreShell::selfTest();
         V3Broken::selfTest();
         V3ThreadPool::selfTest();
-        UINFO(2, "selfTest done");
+        UINFO(2, "selfTest done\n");
     }
 
     // Read first filename
@@ -762,8 +755,7 @@ static bool verilate(const string& argString) {
                                  + "__idmap.xml");
     }
 
-    if ((v3Global.opt.skipIdentical().isTrue() || v3Global.opt.makeDepend().isTrue())
-        && !V3Error::isErrorOrWarn()) {
+    if (v3Global.opt.skipIdentical().isTrue() || v3Global.opt.makeDepend().isTrue()) {
         V3File::writeTimes(v3Global.opt.hierTopDataDir() + "/" + v3Global.opt.prefix()
                                + "__verFiles.dat",
                            argString);
@@ -771,19 +763,9 @@ static bool verilate(const string& argString) {
 
     V3Os::filesystemFlushBuildDir(v3Global.opt.makeDir());
     if (v3Global.opt.hierTop()) V3Os::filesystemFlushBuildDir(v3Global.opt.hierTopDataDir());
-    if (v3Global.opt.stats()) V3Stats::statsStageAll(v3Global.rootp(), "WroteAll");
-    if (v3Global.opt.stats()) V3Stats::statsStageAll(v3Global.rootp(), "WroteFast");
 
     // Final writing shouldn't throw warnings, but...
     V3Error::abortIfWarnings();
-
-    // Free memory so compiler has more for --build
-    // No need to do this if skipped (above) as didn't alloc much
-    UINFO(1, "Releasing netlist memory");
-    v3Global.rootp()->deleteContents();
-    V3Os::releaseMemory();
-    if (v3Global.opt.stats()) V3Stats::statsStage("released");
-    return true;
 }
 
 static string buildMakeCmd(const string& makefile, const string& target) {
@@ -810,7 +792,7 @@ static void execBuildJob() {
     UASSERT(v3Global.opt.gmake(), "--build requires GNU Make.");
     UASSERT(!v3Global.opt.cmake(), "--build cannot use CMake.");
     VlOs::DeltaWallTime buildWallTime{true};
-    UINFO(1, "Start Build");
+    UINFO(1, "Start Build\n");
 
     const string cmdStr = buildMakeCmd(v3Global.opt.prefix() + ".mk", "");
     V3Os::filesystemFlushBuildDir(v3Global.opt.hierTopDataDir());
@@ -867,11 +849,10 @@ int main(int argc, char** argv) {
 
     V3Error::abortIfErrors();
 
-    bool didVerilate = false;
     if (v3Global.opt.verilate()) {
-        didVerilate = verilate(argString);
+        verilate(argString);
     } else {
-        UINFO(1, "Option --no-verilate: Skip Verilation");
+        UINFO(1, "Option --no-verilate: Skip Verilation\n");
     }
 
     if (v3Global.hierPlanp() && v3Global.opt.gmake()) {
@@ -879,9 +860,6 @@ int main(int argc, char** argv) {
     } else if (v3Global.opt.build()) {
         execBuildJob();
     }
-
-    if (didVerilate) reportStatsIfEnabled();
-    V3DiagSarif::output(true);
 
     // Explicitly release resources
     V3PreShell::shutdown();
@@ -894,5 +872,5 @@ int main(int argc, char** argv) {
         V3Stats::summaryReport();
     }
 
-    UINFO(1, "Done, Exiting...");
+    UINFO(1, "Done, Exiting...\n");
 }

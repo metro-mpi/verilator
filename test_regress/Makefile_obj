@@ -22,6 +22,9 @@ VPATH += ../..
 
 #######################################################################
 
+# Needed by DPI tests
+CPPFLAGS += -DVERILATOR=1
+
 # Debugging
 CPPFLAGS += -DVL_DEBUG=1
 # Assertions disabled as SystemC libraries are not clean

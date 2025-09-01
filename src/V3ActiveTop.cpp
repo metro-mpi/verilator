@@ -61,18 +61,18 @@ class ActiveTopVisitor final : public VNVisitor {
     void visit(AstNodeModule* nodep) override {
         // Create required actives and add to module
         // We can start ordering at a module, or a scope
-        UINFO(4, " MOD   " << nodep);
+        UINFO(4, " MOD   " << nodep << endl);
         iterateChildren(nodep);
     }
     void visit(AstActive* nodep) override {
-        UINFO(4, "   ACTIVE " << nodep);
+        UINFO(4, "   ACTIVE " << nodep << endl);
         // Remove duplicate clocks and such; sensesp() may change!
         V3Const::constifyExpensiveEdit(nodep);
-        AstSenTree* sentreep = nodep->sentreep();
-        UASSERT_OBJ(sentreep, nodep, "nullptr");
-        if (sentreep->sensesp() && sentreep->sensesp()->isNever()) {
+        AstSenTree* sensesp = nodep->sensesp();
+        UASSERT_OBJ(sensesp, nodep, "nullptr");
+        if (sensesp->sensesp() && sensesp->sensesp()->isNever()) {
             // Never executing.  Kill it.
-            UASSERT_OBJ(!sentreep->sensesp()->nextp(), nodep,
+            UASSERT_OBJ(!sensesp->sensesp()->nextp(), nodep,
                         "Never senitem should be alone, else the never should be eliminated.");
             VL_DO_DANGLING(nodep->unlinkFrBack()->deleteTree(), nodep);
             return;
@@ -94,21 +94,21 @@ class ActiveTopVisitor final : public VNVisitor {
 
         // Move the SENTREE for each active up to the global level.
         // This way we'll easily see what clock domains are identical
-        AstSenTree* const wantp = m_finder.getSenTree(sentreep);
-        UINFO(4, "   lookdone");
-        if (wantp != sentreep) {
+        AstSenTree* const wantp = m_finder.getSenTree(sensesp);
+        UINFO(4, "   lookdone\n");
+        if (wantp != sensesp) {
             // Move the active's contents to the other active
-            UINFO(4, "   merge active " << sentreep << " into " << wantp);
-            if (nodep->senTreeStorep()) {
-                UASSERT_OBJ(sentreep == nodep->senTreeStorep(), nodep,
+            UINFO(4, "   merge active " << sensesp << " into " << wantp << endl);
+            if (nodep->sensesStorep()) {
+                UASSERT_OBJ(sensesp == nodep->sensesStorep(), nodep,
                             "sensesStore should have been deleted earlier if different");
-                sentreep->unlinkFrBack();
+                sensesp->unlinkFrBack();
                 // There may be other references to same sense tree,
                 // we'll be removing all references when we get to them,
                 // but don't dangle our pointer yet!
-                VL_DO_DANGLING(pushDeletep(sentreep), sentreep);
+                VL_DO_DANGLING(pushDeletep(sensesp), sensesp);
             }
-            nodep->sentreep(wantp);
+            nodep->sensesp(wantp);
         }
 
         // If this is combinational logic that does not read any variables, then it really is an
@@ -116,7 +116,7 @@ class ActiveTopVisitor final : public VNVisitor {
         // prune these otherwise.
         // TODO: we should warn for these if they were 'always @*' as some (including strictly
         //       compliant) simulators will never execute these.
-        if (nodep->sentreep()->hasCombo()) {
+        if (nodep->sensesp()->hasCombo()) {
             FileLine* const flp = nodep->fileline();
             AstActive* initialp = nullptr;
             for (AstNode *logicp = nodep->stmtsp(), *nextp; logicp; logicp = nextp) {
@@ -155,7 +155,7 @@ public:
 // Active class functions
 
 void V3ActiveTop::activeTopAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { ActiveTopVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("activetop", 0, dumpTreeEitherLevel() >= 3);
 }

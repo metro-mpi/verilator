@@ -73,13 +73,13 @@ class SplitAsCleanVisitor final : public VNVisitor {
     void visit(AstVarRef* nodep) override {
         if (nodep->access().isWriteOrRW()) {
             if (nodep->varScopep() == m_splitVscp) {
-                UINFO(6, "       CL VAR " << nodep);
+                UINFO(6, "       CL VAR " << nodep << endl);
                 m_matches = true;
             }
         }
     }
     void visit(AstNodeStmt* nodep) override {
-        UINFO(6, "     CL STMT " << nodep);
+        UINFO(6, "     CL STMT " << nodep << endl);
         const bool oldKeep = m_keepStmt;
         {
             VL_RESTORER(m_matches);
@@ -89,16 +89,16 @@ class SplitAsCleanVisitor final : public VNVisitor {
             iterateChildren(nodep);
 
             if (m_keepStmt || (m_modeMatch ? m_matches : !m_matches)) {
-                UINFO(6, "     Keep   STMT " << nodep);
+                UINFO(6, "     Keep   STMT " << nodep << endl);
                 m_keepStmt = true;
             } else {
-                UINFO(6, "     Delete STMT " << nodep);
+                UINFO(6, "     Delete STMT " << nodep << endl);
                 VL_DO_DANGLING(pushDeletep(nodep->unlinkFrBack()), nodep);
             }
         }
         // If something below matches, the upper statement remains too.
         m_keepStmt = oldKeep || m_keepStmt;
-        UINFO(9, "     upKeep=" << m_keepStmt << " STMT " << nodep);
+        UINFO(9, "     upKeep=" << m_keepStmt << " STMT " << nodep << endl);
     }
     void visit(AstExprStmt* nodep) override {
         // A function call inside the splitting assignment
@@ -131,7 +131,7 @@ class SplitAsVisitor final : public VNVisitor {
 
     // METHODS
     void splitAlways(AstAlways* nodep, AstVarScope* splitVscp) {
-        UINFOTREE(9, nodep, "", "in");
+        if (debug() >= 9) nodep->dumpTree("-  in: ");
         // Duplicate it and link in
         // Below cloneTree should perhaps be cloneTreePure, but given
         // isolate_assignments is required to hit this code, we presume the user
@@ -141,11 +141,11 @@ class SplitAsVisitor final : public VNVisitor {
         nodep->addNextHere(newp);
         {  // Delete stuff we don't want in old
             const SplitAsCleanVisitor visitor{nodep, splitVscp, false};
-            UINFOTREE(9, nodep, "", "out0");
+            if (debug() >= 9) nodep->dumpTree("-  out0: ");
         }
         {  // Delete stuff we don't want in new
             const SplitAsCleanVisitor visitor{newp, splitVscp, true};
-            UINFOTREE(9, newp, "", "out1");
+            if (debug() >= 9) newp->dumpTree("-  out1: ");
         }
     }
 
@@ -159,8 +159,8 @@ class SplitAsVisitor final : public VNVisitor {
             AstVarScope* const splitVscp = visitor.splitVscp();
             // Now isolate the always
             if (splitVscp) {
-                UINFO(3, "Split  " << nodep);
-                UINFO(3, "   For " << splitVscp);
+                UINFO(3, "Split  " << nodep << endl);
+                UINFO(3, "   For " << splitVscp << endl);
                 // If we did this last time!  Something's stuck!
                 UASSERT_OBJ(splitVscp != lastSplitVscp, nodep,
                             "Infinite loop in isolate_assignments removal for: "
@@ -189,7 +189,7 @@ public:
 // SplitAs class functions
 
 void V3SplitAs::splitAsAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { SplitAsVisitor{nodep}; }  // Destruct before checking
     V3Global::dumpCheckGlobalTree("splitas", 0, dumpTreeEitherLevel() >= 3);
 }

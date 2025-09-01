@@ -6,12 +6,10 @@
 
 module t;
 `line 100 "some file" 0
-$info("aaaaaaaa file='%s'", `__FILE__);
-$info("bbbbbbbb file='%s'", `__FILE__);
+$info("aaaaaaaa");
+$info("bbbbbbbb");
 `line 200 "somefile.v" 0
-$info("cccccccc file='%s'", `__FILE__);
+$info("cccccccc");
 `line 300 "/a/somefile.v" 0
-$info("dddddddd file='%s'", `__FILE__);
-`line 400 "C:\\a\\somefile.v" 0
-$info("eeeeeeee file='%s'", `__FILE__);
+$info("dddddddd");
 endmodule

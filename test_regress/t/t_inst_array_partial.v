@@ -10,9 +10,7 @@ module t (/*AUTOARG*/
    );
    input clk;
 
-   // verilator lint_off MULTIDRIVEN
    wire [19:10] bitout;
-   // verilator lint_on MULTIDRIVEN
    wire [29:24] short_bitout;
    wire [7:0]   allbits;
    wire [15:0]  twobits;

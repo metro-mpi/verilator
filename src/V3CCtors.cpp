@@ -67,7 +67,7 @@ class V3CCtorsBuilder final {
         funcp->slow(!m_type.isClass());  // Only classes construct on fast path
         string preventUnusedStmt;
         if (m_type.isClass()) {
-            funcp->argTypes(EmitCUtil::symClassVar());
+            funcp->argTypes(EmitCBase::symClassVar());
             preventUnusedStmt = "(void)vlSymsp;  // Prevent unused variable warning\n";
         } else if (m_type.isCoverage()) {
             funcp->argTypes("bool first");
@@ -132,7 +132,7 @@ private:
 class CCtorsVisitor final : public VNVisitor {
     // NODE STATE
 
-    // STATE - for current visit position (use VL_RESTORER)
+    // STATE
     AstNodeModule* m_modp = nullptr;  // Current module
     AstCFunc* m_cfuncp = nullptr;  // Current function
     V3CCtorsBuilder* m_varResetp = nullptr;  // Builder of _ctor_var_reset
@@ -161,10 +161,10 @@ class CCtorsVisitor final : public VNVisitor {
         if (v3Global.opt.coverage()) {
             V3CCtorsBuilder configure_coverage{nodep, "_configure_coverage", VCtorType::COVERAGE};
             for (AstNode* np = nodep->stmtsp(); np; np = np->nextp()) {
-                if (AstNodeCoverDecl* const coverp = VN_CAST(np, NodeCoverDecl)) {
+                if (AstCoverDecl* const coverp = VN_CAST(np, CoverDecl)) {
                     // ... else we don't have a static VlSym to be able to coverage insert
                     UASSERT_OBJ(!VN_IS(nodep, Class), coverp,
-                                "NodeCoverDecl should be in class's package, not class itself");
+                                "CoverDecl should be in class's package, not class itself");
                     np = coverp->backp();
                     configure_coverage.add(coverp->unlinkFrBack());
                 }
@@ -260,7 +260,7 @@ void V3CCtors::evalAsserts() {
 }
 
 void V3CCtors::cctorsAll() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     evalAsserts();
     { CCtorsVisitor{v3Global.rootp()}; }
     V3Global::dumpCheckGlobalTree("cctors", 0, dumpTreeEitherLevel() >= 3);

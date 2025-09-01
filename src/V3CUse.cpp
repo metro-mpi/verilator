@@ -43,7 +43,7 @@ class CUseVisitor final : public VNVisitorConst {
     std::map<std::string, std::pair<FileLine*, VUseType>> m_didUse;  // What we already used
 
     // METHODS
-    void addNewUse(const AstNode* nodep, VUseType useType, const string& name) {
+    void addNewUse(AstNode* nodep, VUseType useType, const string& name) {
         auto e = m_didUse.emplace(name, std::make_pair(nodep->fileline(), useType));
         if (e.second || ((e.first->second.second & useType) != useType)) {
             e.first->second.second = e.first->second.second | useType;
@@ -73,8 +73,7 @@ class CUseVisitor final : public VNVisitorConst {
         if (stypep && stypep->classOrPackagep()) {
             addNewUse(nodep, VUseType::INT_INCLUDE, stypep->classOrPackagep()->name());
             iterateChildrenConst(stypep);
-        } else if (const AstClassRefDType* const classp
-                   = VN_CAST(nodep->skipRefp(), ClassRefDType)) {
+        } else if (AstClassRefDType* const classp = VN_CAST(nodep->skipRefp(), ClassRefDType)) {
             addNewUse(nodep, VUseType::INT_FWD_CLASS, classp->name());
         }
     }
@@ -93,13 +92,13 @@ class CUseVisitor final : public VNVisitorConst {
 public:
     // CONSTRUCTORS
     explicit CUseVisitor(AstNodeModule* modp)
-        : m_modp{modp} {
+        : m_modp(modp) {
         iterateConst(modp);
 
-        for (const auto& used : m_didUse) {
+        for (auto& used : m_didUse) {
             AstCUse* const newp = new AstCUse{used.second.first, used.second.second, used.first};
             m_modp->addStmtsp(newp);
-            UINFO(8, "Insert " << newp);
+            UINFO(8, "Insert " << newp << endl);
         }
     }
     ~CUseVisitor() override = default;
@@ -110,7 +109,7 @@ public:
 // Class class functions
 
 void V3CUse::cUseAll() {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     // Call visitor separately for each module, so visitor state is cleared
     for (AstNodeModule* modp = v3Global.rootp()->modulesp(); modp;
          modp = VN_AS(modp->nextp(), NodeModule)) {

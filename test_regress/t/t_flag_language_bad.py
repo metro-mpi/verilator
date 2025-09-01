@@ -11,8 +11,6 @@ import vltest_bootstrap
 
 test.scenarios('vlt')
 
-test.lint(verilator_flags2=['--language 1-2-3-4'],
-          fails=True,
-          expect_filename=test.golden_filename)
+test.lint(verilator_flags2=['--language 1-2-3-4'], fails=True)
 
 test.passes()

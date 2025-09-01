@@ -4,7 +4,6 @@
 
 import argparse
 import collections
-import ctypes
 import glob
 import hashlib
 import json
@@ -15,7 +14,6 @@ import pickle
 import platform
 import pty
 import re
-import resource
 import runpy
 import shutil
 import signal
@@ -737,19 +735,10 @@ class VlTest:
         self.nc_define = 'NC'
         self.nc_flags = [
             "+licqueue", "+nowarn+LIBNOU", "+define+NC=1", "-q", "+assert", "+sv", "-c",
-            "-xmlibdirname", (self.obj_dir + "/xcelium.d"), ("+access+r" if Args.trace else "")
+            ("+access+r" if Args.trace else "")
         ]
         self.nc_flags2 = []  # Overridden in some sim files
-        self.nc_run_flags = [
-            "+licqueue",
-            "-q",
-            "+assert",
-            "+sv",
-            "-R",
-            "-covoverwrite",
-            "-xmlibdirname",
-            (self.obj_dir + "/xcelium.d"),
-        ]
+        self.nc_run_flags = ["+licqueue", "-q", "+assert", "+sv", "-R"]
         # ModelSim
         self.ms_define = 'MS'
         self.ms_flags = [
@@ -1332,7 +1321,6 @@ class VlTest:
                     entering=self.obj_dir,
                     cmd=[
                         os.environ['MAKE'],
-                        (("-j " + str(Args.driver_build_jobs)) if Args.driver_build_jobs else ""),
                         "-C " + self.obj_dir,
                         "-f " + os.path.abspath(os.path.dirname(__file__)) + "/Makefile_obj",
                         ("" if self.verbose else "--no-print-directory"),
@@ -1367,19 +1355,6 @@ class VlTest:
                 VtOs.getenv_def('CFLAGS', ''), self.pli_filename
             ]
             self.run(logfile=self.obj_dir + "/pli_compile.log", fails=param['fails'], cmd=cmd)
-
-    def timeout(self, seconds):
-        """Limit the CPU time of the test - this limit is inherited
-        by all of the spawned child processess"""
-        #  An  unprivileged  process may set only its soft limit
-        #  to a value in the range from 0 up to the hard limit
-        _, hardlimit = resource.getrlimit(resource.RLIMIT_CPU)
-        softlimit = ctypes.c_long(min(seconds, ctypes.c_ulong(hardlimit).value)).value
-        # Casting is required due to a quirk in Python,
-        # rlimit values are interpreted as LONG, instead of ULONG
-        # https://github.com/python/cpython/issues/137044
-        rlimit = (softlimit, hardlimit)
-        resource.setrlimit(resource.RLIMIT_CPU, rlimit)
 
     def execute(self, **kwargs) -> None:
         """Run simulation executable.
@@ -1543,7 +1518,6 @@ class VlTest:
                 *param['all_run_flags'],
                 ("'" if Args.gdbsim else ""),
             ]
-            cmd += self.driver_verilated_flags
             self.run(
                 cmd=cmd,
                 aslr_off=param['aslr_off'],  # Disable address space layour randomization
@@ -1578,10 +1552,6 @@ class VlTest:
     @property
     def driver_verilator_flags(self) -> list:
         return Args.passdown_verilator_flags
-
-    @property
-    def driver_verilated_flags(self) -> list:
-        return Args.passdown_verilated_flags
 
     @property
     def get_default_vltmt_threads(self) -> int:
@@ -1763,9 +1733,6 @@ class VlTest:
                     try:
                         data = os.read(fd, 1)
                         self._run_output(data, logfh, tee)
-                        # Parent detects child termination by checking for b''
-                        if not data:
-                            break
                     except OSError:
                         break
 
@@ -2327,13 +2294,10 @@ class VlTest:
                 line = re.sub(r'\r', '<#013>', line)
                 line = re.sub(r'Command Failed[^\n]+', 'Command Failed', line)
                 line = re.sub(r'Version: Verilator[^\n]+', 'Version: Verilator ###', line)
-                line = re.sub(r'"version": "[^"]+"', '"version": "###"', line)
                 line = re.sub(r'CPU Time: +[0-9.]+ seconds[^\n]+', 'CPU Time: ###', line)
                 line = re.sub(r'\?v=[0-9.]+', '?v=latest', line)  # warning URL
                 line = re.sub(r'_h[0-9a-f]{8}_', '_h########_', line)
                 line = re.sub(r'%Error: /[^: ]+/([^/:])', r'%Error: .../\1',
-                              line)  # Avoid absolute paths
-                line = re.sub(r'("file://)/[^: ]+/([^/:])', r'\1/.../\2',
                               line)  # Avoid absolute paths
                 line = re.sub(r' \/[^ ]+\/verilated_std.sv', ' verilated_std.sv', line)
                 #
@@ -2669,7 +2633,6 @@ class VlTest:
                 fhw.write("   :emphasize-lines: " + emph + "\n")
             fhw.write("\n")
             for line in out:
-                line = re.sub(r' +$', '', line)
                 fhw.write(line)
 
         self.files_identical(temp_fn, out_filename)
@@ -2739,8 +2702,6 @@ def _parameter(param: str) -> None:
             sys.exit("%Error: Expected number following " + _Parameter_Next_Level + ": " + param)
         Args.passdown_verilator_flags.append(param)
         _Parameter_Next_Level = None
-    elif re.match(r'^(\+verilator\+.*)', param):
-        Args.passdown_verilated_flags.append(param)
     elif re.search(r'\.py', param):
         Arg_Tests.append(param)
     elif re.match(r'^-?(-debugi|-dumpi)', param):
@@ -2809,7 +2770,6 @@ if __name__ == '__main__':
     if 'TEST_REGRESS' in os.environ:
         sys.exit("%Error: TEST_REGRESS environment variable is already set")
     os.environ['TEST_REGRESS'] = os.getcwd()
-    os.environ['TERM'] = "dumb"
 
     Start = time.time()
     _Parameter_Next_Level = None
@@ -2899,7 +2859,6 @@ if __name__ == '__main__':
 
     (Args, rest) = parser.parse_known_intermixed_args()
     Args.passdown_verilator_flags = []
-    Args.passdown_verilated_flags = []
 
     for arg in rest:
         _parameter(arg)
@@ -2951,7 +2910,6 @@ if __name__ == '__main__':
 
     forker = Forker(Args.jobs)
 
-    Args.driver_build_jobs = None
     if len(Arg_Tests) >= 2 and Args.jobs >= 2:
         # Read supported into master process, so don't call every subprocess
         Capabilities.warmup_cache()
@@ -2960,8 +2918,5 @@ if __name__ == '__main__':
         print("== Many jobs; redirecting STDIN", file=sys.stderr)
         #
         sys.stdin = open("/dev/null", 'r', encoding="utf8")  # pylint: disable=consider-using-with
-    else:
-        # Speed up single-test makes
-        Args.driver_build_jobs = calc_jobs()
 
     run_them()

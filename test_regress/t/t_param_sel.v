@@ -90,5 +90,5 @@ module add (/*AUTOARG*/
    parameter PASSDOWN = 9999;
    input [31:0] in;
    output [31:0] out;
-   assign out = in + PASSDOWN;
+   wire          out = in + PASSDOWN;
 endmodule

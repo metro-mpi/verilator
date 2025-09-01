@@ -17,13 +17,10 @@
 #include "config_build.h"
 #include "verilatedos.h"
 
-#if defined(_WIN32) || defined(__MINGW32__)
-#include <io.h>  // open, read, write, close
-#endif
+#include "V3String.h"
 
 #include "V3Error.h"
 #include "V3FileLine.h"
-#include "V3String.h"
 
 #ifndef V3ERROR_NO_GLOBAL_
 #include "V3Global.h"
@@ -31,7 +28,6 @@ VL_DEFINE_DEBUG_FUNCTIONS;
 #endif
 
 #include <algorithm>
-#include <fcntl.h>
 
 size_t VName::s_minLength = 32;
 size_t VName::s_maxLength = 0;  // Disabled
@@ -95,7 +91,7 @@ string VString::upcase(const string& str) VL_PURE {
     return result;
 }
 
-string VString::quoteAny(const string& str, char tgt, char esc) VL_PURE {
+string VString::quoteAny(const string& str, char tgt, char esc) {
     string result;
     for (const char c : str) {
         if (c == tgt) result += esc;
@@ -164,18 +160,16 @@ string VString::unquoteSVString(const string& text, string& errOut) {
             if (std::isdigit(*cp)) {
                 octal_val = octal_val * 8 + (*cp - '0');
                 if (++octal_digits == 3) {
-                    newtext += octal_val;
                     octal_digits = 0;
-                    octal_val = 0;
                     quoted = false;
+                    newtext += octal_val;
                 }
             } else {
                 if (octal_digits) {
                     // Spec allows 1-3 digits
-                    newtext += octal_val;
                     octal_digits = 0;
-                    octal_val = 0;
                     quoted = false;
+                    newtext += octal_val;
                     --cp;  // Backup to reprocess terminating character as non-escaped
                     continue;
                 }
@@ -206,11 +200,6 @@ string VString::unquoteSVString(const string& text, string& errOut) {
                 }
             }
         } else if (*cp == '\\') {
-            if (octal_digits) {
-                newtext += octal_val;
-                // below: octal_digits = 0;
-                octal_val = 0;
-            }
             quoted = true;
             octal_digits = 0;
         } else {
@@ -237,32 +226,6 @@ string VString::removeWhitespace(const string& str) {
     result.reserve(str.size());
     for (const char c : str) {
         if (!std::isspace(c)) result += c;
-    }
-    return result;
-}
-
-string VString::trimWhitespace(const string& str) {
-    string result;
-    result.reserve(str.size());
-    string add;
-    bool newline = false;
-    for (const char c : str) {
-        if (newline && std::isspace(c)) continue;
-        if (c == '\n') {
-            add = "\n";
-            newline = true;
-            continue;
-        }
-        if (std::isspace(c)) {
-            add += c;
-            continue;
-        }
-        if (!add.empty()) {
-            result += add;
-            newline = false;
-            add.clear();
-        }
-        result += c;
     }
     return result;
 }
@@ -308,17 +271,6 @@ double VString::parseDouble(const string& str, bool* successp) {
     return d;
 }
 
-string VString::replaceSubstr(const string& str, const string& from, const string& to) {
-    string result = str;
-    const size_t fromLen = from.size();
-    const size_t toLen = to.size();
-    UASSERT_STATIC(fromLen > 0, "Cannot replace empty string");
-    for (size_t pos = 0; (pos = result.find(from, pos)) != string::npos; pos += toLen) {
-        result.replace(pos, fromLen, to);
-    }
-    return result;
-}
-
 string VString::replaceWord(const string& str, const string& from, const string& to) {
     string result = str;
     const size_t len = from.size();
@@ -352,53 +304,6 @@ string VString::aOrAn(const char* word) {
     case 'u': return "an";
     default: return "a";
     }
-}
-
-// MurmurHash64A
-uint64_t VString::hashMurmur(const string& str) VL_PURE {
-    const char* key = str.c_str();
-    const size_t len = str.size();
-    const uint64_t seed = 0;
-    const uint64_t m = 0xc6a4a7935bd1e995ULL;
-    const int r = 47;
-
-    uint64_t h = seed ^ (len * m);
-
-    const uint64_t* data = reinterpret_cast<const uint64_t*>(key);
-    const uint64_t* end = data + (len / 8);
-
-    while (data != end) {
-        uint64_t k = *data++;
-
-        k *= m;
-        k ^= k >> r;
-        k *= m;
-
-        h ^= k;
-        h *= m;
-    }
-
-    const unsigned char* data2 = reinterpret_cast<const unsigned char*>(data);
-
-    switch (len & 7) {
-    case 7: h ^= uint64_t(data2[6]) << 48; /* fallthrough */
-    case 6: h ^= uint64_t(data2[5]) << 40; /* fallthrough */
-    case 5: h ^= uint64_t(data2[4]) << 32; /* fallthrough */
-    case 4: h ^= uint64_t(data2[3]) << 24; /* fallthrough */
-    case 3: h ^= uint64_t(data2[2]) << 16; /* fallthrough */
-    case 2: h ^= uint64_t(data2[1]) << 8; /* fallthrough */
-    case 1: h ^= uint64_t(data2[0]); h *= m; /* fallthrough */
-    };
-
-    h ^= h >> r;
-    h *= m;
-    h ^= h >> r;
-
-    return h;
-}
-
-void VString::selfTest() {
-    UASSERT_SELFTEST(const string&, VString::replaceSubstr("aa", "a", "ba"), "baba");
 }
 
 //######################################################################
@@ -501,20 +406,6 @@ void VHashSha256::insert(const void* datap, size_t length) {
     }
 
     m_remainder = std::string(reinterpret_cast<const char*>(chunkp + posBegin), chunkLen - posEnd);
-}
-
-void VHashSha256::insertFile(const string& filename) {
-    static const size_t BUFFER_SIZE = 64 * 1024;
-
-    const int fd = ::open(filename.c_str(), O_RDONLY);
-    if (fd < 0) return;
-
-    std::array<char, BUFFER_SIZE + 1> buf;
-    while (const ssize_t got = ::read(fd, &buf, BUFFER_SIZE)) {
-        if (got <= 0) break;
-        insert(&buf, got);
-    }
-    ::close(fd);
 }
 
 void VHashSha256::finalize() {
@@ -761,7 +652,7 @@ VSpellCheck::EditDistance VSpellCheck::cutoffDistance(size_t goal_len, size_t ca
 }
 
 string VSpellCheck::bestCandidateInfo(const string& goal, EditDistance& distancer) const {
-    string best;
+    string bestCandidate;
     const size_t gLen = goal.length();
     distancer = LENGTH_LIMIT * 10;
     for (const string& candidate : m_candidates) {
@@ -776,16 +667,16 @@ string VSpellCheck::bestCandidateInfo(const string& goal, EditDistance& distance
 
         const EditDistance dist = editDistance(goal, candidate);
         UINFO(9, "EditDistance dist=" << dist << " cutoff=" << cutoff << " goal=" << goal
-                                      << " candidate=" << candidate);
+                                      << " candidate=" << candidate << endl);
         if (dist < distancer && dist <= cutoff) {
             distancer = dist;
-            best = candidate;
+            bestCandidate = candidate;
         }
     }
 
     // If goal matches candidate avoid suggesting replacing with self
     if (distancer == 0) return "";
-    return best;
+    return bestCandidate;
 }
 
 void VSpellCheck::selfTestDistanceOne(const string& a, const string& b, EditDistance expected) {

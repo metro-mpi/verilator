@@ -59,7 +59,7 @@ module Vt_debug_emitv_t;
                 $write("");
             end
             if (downto_32[(ident('sh21) - 'h20)[5:0] + 32
-                +:1]) begin
+                +:'h1]]) begin
                 $write("");
             end
             if ((| downto_32[48:40])) begin
@@ -74,8 +74,6 @@ module Vt_debug_emitv_t;
             if (the_ifaces[2].ifsig) begin
                 $write("");
             end
-            #64'h1;
-            $write("After #1 delay");
         end
     end
     bit [6:5] [4:3] [2:1]  arraymanyd[10:11][12:13][14:15];
@@ -116,10 +114,10 @@ module Vt_debug_emitv_t;
     endtask
     function f;
         input int signed v;
-        begin : label1
+        begin : label0
             $display("stmt");
             f = ((v == 'sh0) ? 'sh63 : ((~ v) + 'sh1));
-            disable label1;
+            disable label0;
         end
     endfunction
     initial begin
@@ -203,12 +201,12 @@ module Vt_debug_emitv_t;
             begin : unnamedblk3
                 int signed i;
                 i = 'sh0;
-                begin : label2
+                begin : label0
                     while ((i < cyc)) begin
                         begin
                             sum = (sum + i);
                             if ((sum > 'sha)) begin
-                                disable label2;
+                                disable label0;
                             end
                             else begin
                                 sum = (sum + 'sh1);
@@ -225,7 +223,7 @@ module Vt_debug_emitv_t;
                 $stop;
             end
             case (in)
-                 // synopsys full_case parallel_case'sh1: begin $display("1");
+                'sh1: begin $display("1");
                 end
                 default: begin $display("default");
                 end
@@ -390,13 +388,13 @@ module Vt_debug_emitv_sub;
     endtask
     function f;
         input int signed v;
-        begin : label3
+        begin : label0
             if ((v == 'sh0)) begin
                 f = 'sh21;
-                disable label3;
+                disable label0;
             end
             f = ({32'h1{{31'h0, v[2]}}} + 32'h1);
-            disable label3;
+            disable label0;
         end
     endfunction
     real r;

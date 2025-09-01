@@ -1,20 +1,16 @@
--Info: some file:100:1: aaaaaaaa file='some file'
+-Info: some file:100:1: aaaaaaaa
                       : ... note: In instance 't'
-  100 | $info("aaaaaaaa file='%s'", "some file");
+  100 | $info("aaaaaaaa");
       | ^~~~~
--Info: some file:101:1: bbbbbbbb file='some file'
+-Info: some file:101:1: bbbbbbbb
                       : ... note: In instance 't'
-  101 | $info("bbbbbbbb file='%s'", "some file");
+  101 | $info("bbbbbbbb");
       | ^~~~~
--Info: somefile.v:200:1: cccccccc file='somefile.v'
+-Info: somefile.v:200:1: cccccccc
                        : ... note: In instance 't'
-  200 | $info("cccccccc file='%s'", "somefile.v");
+  200 | $info("cccccccc");
       | ^~~~~
--Info: /a/somefile.v:300:1: dddddddd file='/a/somefile.v'
+-Info: /a/somefile.v:300:1: dddddddd
                           : ... note: In instance 't'
-  300 | $info("dddddddd file='%s'", "/a/somefile.v");
-      | ^~~~~
--Info: C:\a\somefile.v:400:1: eeeeeeee file='C:\a\somefile.v'
-                            : ... note: In instance 't'
-  400 | $info("eeeeeeee file='%s'", "C:\\a\\somefile.v");
+  300 | $info("dddddddd");
       | ^~~~~

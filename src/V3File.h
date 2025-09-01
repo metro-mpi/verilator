@@ -102,17 +102,23 @@ public:
 };
 
 //============================================================================
-// V3OutFormatter: A class for automatic indentation of output code.
+// V3OutFormatter: A class for automatic indentation of C++ or Verilog code.
 
 class V3OutFormatter VL_NOT_FINAL {
     // TYPES
     static constexpr int MAXSPACE = 80;  // After this indent, stop indenting more
 public:
     enum AlignClass : uint8_t { AL_AUTO = 0, AL_STATIC = 1 };
-    enum Language : uint8_t { LA_C, LA_JSON, LA_MK, LA_VERILOG, LA_XML };
+    enum Language : uint8_t {
+        LA_C = 0,
+        LA_VERILOG = 1,
+        LA_MK = 2,
+        LA_XML = 3,
+    };
 
 private:
     // MEMBERS
+    const string m_filename;
     const Language m_lang;  // Indenting Verilog code
     int m_blockIndent;  // Characters per block indent
     int m_commaWidth;  // Width after which to break at ,'s
@@ -131,9 +137,10 @@ private:
     void putcNoTracking(char chr);
 
 public:
-    V3OutFormatter(Language lang);
+    V3OutFormatter(const string& filename, Language lang);
     virtual ~V3OutFormatter() = default;
     // ACCESSORS
+    string filename() const { return m_filename; }
     int column() const { return m_column; }
     int blockIndent() const { return m_blockIndent; }
     void blockIndent(int flag) { m_blockIndent = flag; }
@@ -163,7 +170,7 @@ public:
     void indentInc() { m_indentLevel += m_blockIndent; }
     void indentDec() {
         m_indentLevel -= m_blockIndent;
-        UASSERT(m_indentLevel >= 0, "Underflow of indentation");
+        UASSERT(m_indentLevel >= 0, ": " << m_filename << ": Underflow of indentation");
     }
     void blockInc() { m_parenVec.push(m_indentLevel + m_blockIndent); }
     void blockDec() {
@@ -199,7 +206,6 @@ class V3OutFile VL_NOT_FINAL : public V3OutFormatter {
     static constexpr std::size_t WRITE_BUFFER_SIZE_BYTES = 128 * 1024;
 
     // MEMBERS
-    const std::string m_filename;
     FILE* m_fp = nullptr;
     std::size_t m_usedBytes = 0;  // Number of bytes stored in m_bufferp
     std::size_t m_writtenBytes = 0;  // Number of bytes written to output
@@ -212,8 +218,6 @@ public:
     V3OutFile(V3OutFile&&) = delete;
     V3OutFile& operator=(V3OutFile&&) = delete;
     ~V3OutFile() override;
-
-    std::string filename() const { return m_filename; }
 
     void putsForceIncs();
 
@@ -282,128 +286,6 @@ public:
     }
 };
 
-class V3OutJsonFile final : public V3OutFile {
-    // CONSTANTS
-    static constexpr const char* INDENT = "    ";  // Single indent (4, per JSON std)
-
-    // MEMBERS
-private:
-    std::stack<char> m_scope;  // Stack of ']' and '}'  to close currently open scopes
-    std::string m_prefix;  // Prefix emitted before each line in current scope
-    bool m_empty = true;  // Current scope is empty, no comma later
-
-public:
-    explicit V3OutJsonFile(const string& filename)
-        : V3OutFile{filename, V3OutFormatter::LA_JSON} {
-        begin();
-    }
-    ~V3OutJsonFile() override {
-        end();
-        puts("\n");
-    }
-    virtual void putsHeader() {}
-    // cppcheck-suppress duplInheritedMember
-    void puts(const char* strg) { putsNoTracking(strg); }
-    // cppcheck-suppress duplInheritedMember
-    void puts(const string& strg) { putsNoTracking(strg); }
-
-    // METHODS
-    V3OutJsonFile& begin(const std::string& name, char type = '{') {
-        comma();
-        puts(m_prefix + "\"" + name + "\": " + type + "\n");
-        m_prefix += INDENT;
-        m_scope.push(type == '{' ? '}' : ']');
-        return *this;
-    }
-    V3OutJsonFile& begin(char type = '{') {
-        comma();
-        puts(m_prefix + type + "\n");
-        m_prefix += INDENT;
-        m_scope.push(type == '{' ? '}' : ']');
-        return *this;
-    }
-
-    // Put a named value
-    V3OutJsonFile& put(const std::string& name, const char* valuep) {
-        return putNamed(name, std::string{valuep}, true);
-    }
-    V3OutJsonFile& put(const std::string& name, const std::string& value) {
-        return putNamed(name, value, true);
-    }
-    V3OutJsonFile& put(const std::string& name, bool value) {
-        return putNamed(name, value ? "true" : "false", false);
-    }
-    V3OutJsonFile& put(const std::string& name, int value) {
-        return putNamed(name, std::to_string(value), false);
-    }
-
-    // Put unnamed value
-    V3OutJsonFile& put(const std::string& value) { return putNamed("", value, true); }
-    V3OutJsonFile& put(bool value) { return putNamed("", value ? "true" : "false", false); }
-    V3OutJsonFile& put(int value) { return putNamed("", std::to_string(value), false); }
-
-    template <typename T>
-    V3OutJsonFile& putList(const std::string& name, const T& list) {
-        if (list.empty()) return *this;
-        begin(name, '[');
-        for (auto it = list.begin(); it != list.end(); ++it) put(*it);
-        return end();
-    }
-
-    V3OutJsonFile& end() {
-        UASSERT(m_prefix.length() >= strlen(INDENT), "prefix underflow");
-        m_prefix.erase(m_prefix.end() - strlen(INDENT), m_prefix.end());
-        UASSERT(!m_scope.empty(), "end() without begin()");
-        puts("\n" + m_prefix + m_scope.top());
-        m_scope.pop();
-        return *this;
-    }
-
-    V3OutJsonFile& operator+=(V3OutJsonFile& cursor) {
-        // Meaningless syntax sugar, at least for now
-        return *this;
-    }
-
-private:
-    void comma() {
-        if (!m_empty) puts(",\n");
-        m_empty = true;
-    }
-    V3OutJsonFile& putNamed(const std::string& name, const std::string& value, bool quoted) {
-        comma();
-        const string valueQ
-            = quoted ? "\""s + V3OutFormatter::quoteNameControls(value) + "\"" : value;
-        if (name.empty()) {
-            puts(m_prefix + valueQ);
-        } else {
-            puts(m_prefix + "\"" + name + "\": " + valueQ);
-        }
-        m_empty = false;
-        return *this;
-    }
-};
-
-class V3OutMkFile final : public V3OutFile {
-public:
-    explicit V3OutMkFile(const string& filename)
-        : V3OutFile{filename, V3OutFormatter::LA_MK} {}
-    ~V3OutMkFile() override = default;
-    virtual void putsHeader() { puts("# Verilated -*- Makefile -*-\n"); }
-    // No automatic indentation yet.
-    // cppcheck-suppress duplInheritedMember
-    void puts(const char* strg) { putsNoTracking(strg); }
-    // cppcheck-suppress duplInheritedMember
-    void puts(const string& strg) { putsNoTracking(strg); }
-    // Put VARIABLE = VALUE
-    void putSet(const string& var, const string& value) {
-        puts(VString::dot(var + " =", " ", value) + "\n");
-    }
-    // Put VARIABLE ?= VALUE
-    void putSetQ(const string& var, const string& value) {
-        puts(VString::dot(var + " ?=", " ", value) + "\n");
-    }
-};
-
 class V3OutScFile final : public V3OutCFile {
 public:
     explicit V3OutScFile(const string& filename)
@@ -435,22 +317,15 @@ public:
     virtual void putsHeader() { puts("<?xml version=\"1.0\" ?>\n"); }
 };
 
-//============================================================================
-// V3OutStream: A class for printing formatted code to any std::ostream
-
-class V3OutStream VL_NOT_FINAL : public V3OutFormatter {
-    // MEMBERS
-    std::ostream& m_ostream;
-
-    VL_UNCOPYABLE(V3OutStream);
-    VL_UNMOVABLE(V3OutStream);
-
+class V3OutMkFile final : public V3OutFile {
 public:
-    V3OutStream(std::ostream& ostream, V3OutFormatter::Language lang);
-    ~V3OutStream() override = default;
-
-    void putcOutput(char chr) override { m_ostream << chr; };
-    void putsOutput(const char* str) override { m_ostream << str; };
+    explicit V3OutMkFile(const string& filename)
+        : V3OutFile{filename, V3OutFormatter::LA_MK} {}
+    ~V3OutMkFile() override = default;
+    virtual void putsHeader() { puts("# Verilated -*- Makefile -*-\n"); }
+    // No automatic indentation yet.
+    void puts(const char* strg) { putsNoTracking(strg); }
+    void puts(const string& strg) { putsNoTracking(strg); }
 };
 
 //============================================================================
@@ -461,8 +336,6 @@ class VIdProtectImp;
 class VIdProtect final {
 public:
     // METHODS
-    // Return 'in' only if not protecting (e.g. for emitting a comment)
-    static string ifNoProtect(const string& in) VL_MT_SAFE;
     // Rename to a new encoded string (unless earlier passthru'ed)
     static string protect(const string& old) VL_MT_SAFE { return protectIf(old, true); }
     static string protectIf(const string& old, bool doIt = true) VL_MT_SAFE;

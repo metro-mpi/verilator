@@ -16,9 +16,10 @@ interface Bus3;
   logic [15:0] data;
 endinterface
 
-module t;
-
-  logic clk = 0;
+module t (
+    clk
+);
+  input clk;
   integer cyc = 0;
   Bus1 intf1();
   Bus2 intf2();
@@ -28,10 +29,7 @@ module t;
   virtual Bus3 vif3 = intf3;
 
   logic [15:0] data;
-  // assign vif2.data = data;
-  always @(negedge clk) begin
-    vif2.data <= data;
-  end
+  assign vif2.data = data;
 
   always @(posedge clk) begin
     cyc <= cyc + 1;
@@ -56,18 +54,7 @@ module t;
       $finish;
     end
 
-  always @(intf1.data) begin
-    $write("[%0t] intf1.data==%h\n", $time, intf1.data);
-  end
-  always @(intf2.data) begin
-    $write("[%0t] intf2.data==%h\n", $time, intf2.data);
-  end
-  always @(vif3.data) begin
-    $write("[%0t] vif3.data==%h\n", $time, vif3.data);
-  end
-
-  initial begin
-    repeat (20) #5ns clk = ~clk;
-  end
-
+  always_comb $write("[%0t] intf1.data==%h\n", $time, intf1.data);
+  always_comb $write("[%0t] intf2.data==%h\n", $time, intf2.data);
+  always_comb $write("[%0t] vif3.data==%h\n", $time, vif3.data);
 endmodule

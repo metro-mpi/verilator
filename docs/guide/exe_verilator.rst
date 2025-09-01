@@ -1,9 +1,9 @@
 .. Copyright 2003-2025 by Wilson Snyder.
 .. SPDX-License-Identifier: LGPL-3.0-only OR Artistic-2.0
 
-===================
-verilator Arguments
-===================
+=====================
+ verilator Arguments
+=====================
 
 The following arguments may be passed to the "verilator" executable.
 
@@ -32,9 +32,7 @@ Summary:
    makefile's VPATH the appropriate directory to find the file.
 
    See also :vlopt:`-CFLAGS` and :vlopt:`-LDFLAGS` options, which are
-   useful when the C++ files need special compiler flags.  The compiler
-   flags add by default `-DVERILATOR=1`, so an `#ifdef VERILATOR` may be
-   used to conditionally preprocess .cpp code for different simulators.
+   useful when the C++ files need special compiler flags.
 
 .. option:: <file.v>
 
@@ -88,19 +86,13 @@ Summary:
       grammar and other semantic extensions which might not be legal when
       set to an older standard.
 
-.. option:: --no-assert
+.. option:: --assert
 
-   Disable all assertions. Implies :vlopt:`--no-assert-case`.
+   Enable all assertions. Implies :vlopt:`--assert-case`.
 
-   In versions before 5.038, these were disabled by default, and `--assert`
-   was required to enable assertions.
+.. option:: --assert-case
 
-.. option:: --no-assert-case
-
-   Disable unique/unique0/priority case related checks.
-
-   In versions before 5.038, these were disabled by default, and `--assert`
-   or `--assert-case` was required to enable case assertions.
+   Enable unique/unique0/priority case related checks.
 
 .. option:: --autoflush
 
@@ -191,7 +183,7 @@ Summary:
    With :vlopt:`--clk`, the specified signal is marked as a clock signal.
 
    The provided signal name is specified using a RTL hierarchy path. For
-   example, v.foo.bar.  If the signal is the input to the top-module, then
+   example, v.foo.bar.  If the signal is the input to top-module, then
    directly provide the signal name. Alternatively, use a
    :option:`/*verilator&32;clocker*/` metacomment in RTL file to mark the
    signal directly.
@@ -401,22 +393,6 @@ Summary:
    standard across Verilog tools while :vlopt:`-D <-D<var>>` is similar to
    :command:`gcc -D`.
 
-.. option:: --diagnostics-sarif
-
-   Enables diagnostics output into a Static Analysis Results Interchange
-   Format (SARIF) file, a standard, JSON-based format for the output of
-   static analysis tools such as linters.  See
-   [SARIF](https://sarifweb.azurewebsites.net/),
-   [sarif-tools](https://github.com/microsoft/sarif-tools), and the [SARIF
-   web-based viewer](https://microsoft.github.io/sarif-web-component/).
-
-.. option:: --diagnostics-sarif-output <filename>
-
-   Specifies the filename for the SARIF output file (`.sarif`) of
-   :vlopt:`--diagnostics-sarif`.  Using this option automatically sets
-   :vlopt:`--diagnostics-sarif`.  If not specified, output defaults to
-   :file:`<prefix>.sarif`.
-
 .. option:: --dpi-hdr-only
 
    Only generate the DPI header file.  This option does not affect on the
@@ -470,9 +446,9 @@ Summary:
 
 .. option:: --dump-tree-dot
 
-   Rarely needed - for developer use.  Enable dumping Ast .tree.dot debug
-   files in Graphviz Dot format. This option implies :vlopt:`--dump-tree`,
-   unless :vlopt:`--dumpi-tree` was passed explicitly.
+   Rarely needed.  Enable dumping Ast .tree.dot debug files in Graphviz
+   Dot format. This option implies :vlopt:`--dump-tree`, unless
+   :vlopt:`--dumpi-tree` was passed explicitly.
 
 .. option:: --dump-tree-json
 
@@ -564,10 +540,6 @@ Summary:
    Any :code:`$VAR`, :code:`$(VAR)`, or :code:`${VAR}` will be replaced
    with the specified environment variable.
 
-.. option:: -fdfg-synthesize-all
-
-   Rarely needed. Attempt to synthesize all combinational logic in DFG.
-
 .. option:: -FI <file>
 
    Force include of the specified C++ header file.  All generated C++ files
@@ -596,45 +568,34 @@ Summary:
 
 .. option:: -fno-const-before-dfg
 
-   Rarely needed. Do not apply any global expression folding prior to the
-   DFG pass. This option is solely for the purpose of DFG testing and
-   should not be used otherwise.
+   Do not apply any global expression folding prior to the DFG pass. This
+   option is solely for the purpose of DFG testing and should not be used
+   otherwise.
 
 .. option:: -fno-const-bit-op-tree
-
-.. option:: -fno-const-eager
 
 .. option:: -fno-dedup
 
 .. option:: -fno-dfg
 
-   Rarely needed. Disable all use of the DFG-based combinational logic
-   optimizer.  Alias for :vlopt:`-fno-dfg-pre-inline`,
-   :vlopt:`-fno-dfg-post-inline` and :vlopt:`-fno-dfg-scoped`.
-
-.. option:: -fno-dfg-break-cycles
-
-   Rarely needed. Disable breaking combinational cycles during DFG.
+   Disable all use of the DFG-based combinational logic optimizer.
+   Alias for :vlopt:`-fno-dfg-pre-inline` and :vlopt:`-fno-dfg-post-inline`.
 
 .. option:: -fno-dfg-peephole
 
-   Rarely needed. Disable the DFG peephole optimizer.
+   Disable the DFG peephole optimizer.
 
 .. option:: -fno-dfg-peephole-<pattern>
 
-   Rarely needed. Disable individual DFG peephole optimizer pattern.
+   Disable individual DFG peephole optimizer pattern.
 
 .. option:: -fno-dfg-post-inline
 
-   Rarely needed. Do not apply the DFG optimizer after inlining.
+   Do not apply the DFG optimizer after inlining.
 
 .. option:: -fno-dfg-pre-inline
 
-   Rarely needed. Do not apply the DFG optimizer before inlining.
-
-.. option:: -fno-dfg-scoped
-
-   Rarely needed. Do not apply the DFG optimizer across module scopes.
+   Do not apply the DFG optimizer before inlining.
 
 .. option:: -fno-expand
 
@@ -645,10 +606,6 @@ Summary:
 .. option:: -fno-func-opt-split-cat
 
 .. option:: -fno-gate
-
-   Rarely needed. Do not apply the gate-level wire optimizations. Using
-   this is not recommended as may cause additional warnings and ordering
-   issues.
 
 .. option:: -fno-inline
 
@@ -686,9 +643,8 @@ Summary:
 
 .. option:: -fno-var-split
 
-   Rarely needed. Do not attempt to split variables
-   automatically. Variables explicitly annotated with
-   :option:`/*verilator&32;split_var*/` are still split.
+   Do not attempt to split variables automatically. Variables explicitly
+   annotated with :option:`/*verilator&32;split_var*/` are still split.
 
 .. option:: -future0 <option>
 
@@ -794,19 +750,10 @@ Summary:
 
 .. option:: --hierarchical-params-file <filename>
 
-   Rarely needed - internal use. Internal flag inserted used during
-   :vlopt:`--hierarchical`; specifies name of hierarchical parameters file
-   for deparametrized modules with :option:`/*verilator&32;hier_block*/`
-   metacomment. See :ref:`Hierarchical Verilation`.
-
-.. option:: --hierarchical-threads <threads>
-
-   Specifies the number of threads used for scheduling hierarchical blocks.
-   This allows scheduling multi-thread hierarchical blocks on multiple
-   threads, without increasing the parallelism of the entire design.
-
-   Set to :vlopt:`--threads` by default. For optimal performance should not
-   exceed the CPU thread count.
+   Internal flag inserted used during :vlopt:`--hierarchical`; specifies
+   name of hierarchical parameters file for deparametrized modules with
+   :option:`/*verilator&32;hier_block*/` metacomment. See
+   :ref:`Hierarchical Verilation`.
 
 .. option:: -I<dir>
 
@@ -877,15 +824,13 @@ Summary:
 
 .. option:: --json-only-meta-output <filename>
 
-   Specifies the filename for the metadata output file (`.tree.meta.json`)
-   of :vlopt:`--json-only`.  Using this option automatically sets
-   :vlopt:`--json-only`.
+   Specifies the filename for the metadata output file (`.tree.meta.json`) of --json-only.
+   Using this option automatically sets :vlopt:`--json-only`.
 
 .. option:: --json-only-output <filename>
 
-   Specifies the filename for the main output file (`.tree.json`) of
-   :vlopt:`--json-only`.  Using this option automatically sets
-   :vlopt:`--json-only`.
+   Specifies the filename for the main output file (`.tree.json`) of --json-only.
+   Using this option automatically sets :vlopt:`--json-only`.
 
 .. option:: --l2-name <value>
 
@@ -1011,7 +956,7 @@ Summary:
 
 .. option:: --max-num-width <value>
 
-   Set the maximum number literal width (e.g., in 1024'd22 the
+   Set the maximum number literal width (e.g., in 1024'd22 this
    1024).  Defaults to 64K.
 
 .. option:: --Mdir <directory>
@@ -1239,8 +1184,8 @@ Summary:
 
 .. option:: --private
 
-   Rarely needed. Opposite of :vlopt:`--public`.  This is the default; this
-   option exists for backwards compatibility.
+   Opposite of :vlopt:`--public`.  This is the default; this option exists for
+   backwards compatibility.
 
 .. option:: --prof-c
 
@@ -1328,8 +1273,8 @@ Summary:
 
 .. option:: --public
 
-   Rarely needed. This is only for historical debugging use and using it
-   may result in mis-simulation of generated clocks.
+   This is only for historical debugging use and using it may result in
+   mis-simulation of generated clocks.
 
    Declares all signals and modules public.  This will turn off signal
    optimizations as if all signals had a :option:`/*verilator&32;public*/`
@@ -1395,7 +1340,7 @@ Summary:
    the path of the referencing file, instead of relative to the current
    directory.
 
-.. option:: --reloop-limit <value>
+.. option:: --reloop-limit
 
    Rarely needed. Verilator attempts to turn some common sequences of
    statements into loops in the output. This argument specifies the minimum
@@ -1616,8 +1561,9 @@ Summary:
    When the input Verilog contains more than one top-level module,
    it specifies the name of the module to become the top-level module,
    and sets the default for :vlopt:`--prefix` if not explicitly specified.
-   This is not needed with standard designs with only one top.
-   See :ref:`Finding and Binding Modules`.
+   This is not needed with standard designs with only one top.  See also
+   :option:`MULTITOP` warning.
+
 
 .. option:: --trace
 
@@ -1774,8 +1720,8 @@ Summary:
 
 .. option:: --valgrind
 
-   Rarely needed. Run Verilator under `Valgrind <https://valgrind.org/>`_.
-   The command may be changed with :option:`VERILATOR_VALGRIND`.
+   Run Verilator under `Valgrind <https://valgrind.org/>`_.  The command may be
+   changed with :option:`VERILATOR_VALGRIND`.
 
 .. option:: --no-verilate
 
@@ -1828,7 +1774,7 @@ Summary:
    them systematically.
 
    The generated file is in the Verilator Configuration format, see
-   :ref:`Verilator Control Files`. The standard file extension is ".vlt".
+   :ref:`Configuration Files`. The standard file extension is ".vlt".
    These files can directly be consumed by Verilator, typically by placing
    the filename as part of the Verilator command line options. Waiver files
    need to be listed on the command line before listing the files they are
@@ -1901,19 +1847,6 @@ Summary:
    ``-Wno-UNUSEDGENVAR`` ``-Wno-UNUSEDPARAM`` ``-Wno-UNUSEDSIGNAL``
    ``-Wno-VARHIDDEN``.
 
-.. option:: -work <libname>
-
-   Use the specified Verilog config library name for all cells read after
-   this argument.  May be specified multiple times, it will apply to cells
-   read between the given arguments.  E.g. `-work liba a.v -work libb b.v`
-   will use `liba` for modules inside `a.v` or in cells resolved
-   hierarchically under those modules, and will use `libb` for modules
-   inside `b.v` or hierarchically under.
-
-   Defaults to "work" (IEEE 1800-2023 3.3.1).
-
-   See :ref:`Finding and Binding Modules`.
-
 .. option:: -Wpedantic
 
    Warn on any construct demanded by IEEE, and disable all Verilator
@@ -1947,9 +1880,9 @@ Summary:
    ``-Wwarn-ASSIGNDLY`` ``-Wwarn-BLKSEQ`` ``-Wwarn-DECLFILENAME``
    ``-Wwarn-DEFPARAM`` ``-Wwarn-EOFNEWLINE`` ``-Wwarn-GENUNNAMED``
    ``-Wwarn-IMPORTSTAR`` ``-Wwarn-INCABSPATH`` ``-Wwarn-PINCONNECTEMPTY``
-   ``-Wwarn-PINNOCONNECT`` ``-Wwarn-PROCASSINIT`` ``-Wwarn-SYNCASYNCNET``
-   ``-Wwarn-UNDRIVEN`` ``-Wwarn-UNUSEDGENVAR`` ``-Wwarn-UNUSEDLOOP``
-   ``-Wwarn-UNUSEDPARAM`` ``-Wwarn-UNUSEDSIGNAL`` ``-Wwarn-VARHIDDEN``.
+   ``-Wwarn-PINNOCONNECT`` ``-Wwarn-SYNCASYNCNET`` ``-Wwarn-UNDRIVEN``
+   ``-Wwarn-UNUSEDGENVAR`` ``-Wwarn-UNUSEDLOOP`` ``-Wwarn-UNUSEDPARAM``
+   ``-Wwarn-UNUSEDSIGNAL`` ``-Wwarn-VARHIDDEN``.
 
 .. option:: --x-assign <mode>
 
@@ -1973,13 +1906,14 @@ Summary:
      different seeds on different executions. This method is the slowest,
      but safest for finding reset bugs.
 
-     If using `--x-assign unique`, use the
-     :vlopt:`+verilator+rand+reset+2 <+verilator+rand+reset+\<value\>>`
-     runtime option, and seed the runtime random number generator such that
-     each regression run gets a different randomization sequence with
-     :vlopt:`+verilator+seed+\<value\>`.  You'll probably also want to
-     print any seeds selected, and code to enable rerunning with that same
-     seed, so you can reproduce bugs.
+     If using `--x-assign unique`, you may want to seed your random number
+     generator such that each regression run gets a different randomization
+     sequence. The simplest is to use the
+     :vlopt:`+verilator+seed+\<value\>` runtime option.  Alternatively, use
+     the system's :code:`srand48()` or for Windows :code:`srand()` function
+     to do this.  You'll probably also want to print any seeds selected,
+     and code to enable rerunning with that same seed so you can reproduce
+     bugs.
 
    .. note::
 
@@ -2001,14 +1935,6 @@ Summary:
      initializes variables using a function, which determines the value to
      use for each initialization. This gives the greatest flexibility and
      allows for finding reset bugs.  See :ref:`Unknown states`.
-
-     If using `--x-initial unique`, use the
-     :vlopt:`+verilator+rand+reset+2 <+verilator+rand+reset+\<value\>>`
-     runtime option, and seed the runtime random number generator such that
-     each regression run gets a different randomization sequence with
-     :vlopt:`+verilator+seed+\<value\>`.  You'll probably also want to
-     print any seeds selected, and code to enable rerunning with that same
-     seed, so you can reproduce bugs.
 
    With "--x-initial fast",
      is best for performance, and initializes all variables to a state
@@ -2089,20 +2015,18 @@ Summary:
    filenames.
 
 
-.. _Verilator Control Files:
+.. _Configuration Files:
 
-=======================
-Verilator Control Files
-=======================
+=====================
+ Configuration Files
+=====================
 
 In addition to the command line, warnings and other features for the
-:command:`verilator` command may be controlled with Verilator Control
-Files, not to be confused with IEEE Configurations blocks
-(`config...endconfig`).  Typically named with the `.vlt` extension, what
-makes it a Verilator Control File is the :option:`\`verilator_config`
-directive.  These files, when named `.vlt`, are read before source code
-files; if this behavior is undesired, name the control file with a `.v` or
-other suffix.
+:command:`verilator` command may be controlled with configuration files,
+typically named with the `.vlt` extension (what makes it a configuration
+file is the :option:`\`verilator_config` directive).  These files, when
+named `.vlt`, are read before source code files; if this behavior is
+undesired, name the config file with a `.v` suffix.
 
 An example:
 
@@ -2114,20 +2038,19 @@ An example:
 
 This disables WIDTH warnings globally, and CASEX for a specific file.
 
-Verilator control files are fed through the normal Verilog
-preprocessor prior to parsing, so "\`ifdef", "\`define", and comments may
-be used as if the control file was standard Verilog code.
+Configuration files are fed through the normal Verilog preprocessor prior
+to parsing, so "\`ifdef", "\`define", and comments may be used as if the
+configuration file was standard Verilog code.
 
-Note that file or line-specific control only applies to files read
-after the control file. It is therefore recommended to pass the
-control file to Verilator as the first file.
+Note that file or line-specific configuration only applies to files read
+after the configuration file. It is therefore recommended to pass the
+configuration file to Verilator as the first file.
 
-The grammar of control commands is as follows:
+The grammar of configuration commands is as follows:
 
 .. option:: `verilator_config
 
-   Take the remaining text and treat it as Verilator Control File commands.
-   See :ref:`Verilator Control Files`.
+   Take the remaining text and treat it as Verilator configuration commands.
 
 .. option:: clock_enable -module "<modulename>" -var "<signame>"
 
@@ -2278,7 +2201,7 @@ The grammar of control commands is as follows:
    wildcard should be designed to match a single line; it is unspecified if
    the wildcard is allowed to match across multiple lines. The input
    contents does not include :vlopt:`--std <--no-std>` standard files, nor
-   control files (with :code:`verilator_config`). Typical use for
+   configuration files (with :code:`verilator_config`). Typical use for
    this is to match a version number present in the Verilog sources, so
    that the waiver will only apply to that version of the sources.
 
@@ -2312,13 +2235,13 @@ The grammar of control commands is as follows:
    order to improve model runtime performance.  This option is not expected
    to be used by users directly.  See :ref:`Thread PGO`.
 
-.. option:: public [-module "<modulename>"] [-task/-function "<taskname>"] [-var "<signame>"]
+.. option:: public [-module "<modulename>"] [-task/-function "<taskname>"]  -var "<signame>"
 
-.. option:: public_flat [-module "<modulename>"] [-task/-function "<taskname>"] [-var "<signame>"]
+.. option:: public_flat [-module "<modulename>"] [-task/-function "<taskname>"]  -var "<signame>"
 
-.. option:: public_flat_rd [-module "<modulename>"] [-task/-function "<taskname>"] [-var "<signame>"]
+.. option:: public_flat_rd [-module "<modulename>"] [-task/-function "<taskname>"]  -var "<signame>"
 
-.. option:: public_flat_rw [-module "<modulename>"] [-task/-function "<taskname>"] [-var "<signame>" "@(edge)"]
+.. option:: public_flat_rw [-module "<modulename>"] [-task/-function "<taskname>"]  -var "<signame>" "@(edge)"
 
    Sets the variable to be public.  Same as
    :option:`/*verilator&32;public*/` or

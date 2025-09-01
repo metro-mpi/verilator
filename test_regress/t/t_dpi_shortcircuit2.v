@@ -29,7 +29,7 @@ module t (/*AUTOARG*/);
    integer j;
    integer k;
    bit     b;
-   int errors;
+   integer errors;
 
    task check1(integer line, bit got, bit ex);
       if (got != ex) begin

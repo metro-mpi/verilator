@@ -1,5 +1,5 @@
 $date
-	Tue Jun 10 19:02:19 2025
+	Sun Sep 22 22:54:12 2024
 
 $end
 $version
@@ -8,6 +8,8 @@ $end
 $timescale
 	1ps
 $end
+$scope module $rootio $end
+$upscope $end
 $scope module t $end
 $var event 1 ! ev_test $end
 $var int 32 " i [31:0] $end

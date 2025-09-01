@@ -3,7 +3,6 @@ under the Developer Certificate of Origin (https://developercertificate.org/).
 
 Please see the Verilator manual for 200+ additional contributors. Thanks to all.
 
-404allen404
 Adam Bagley
 Adrian Sampson
 Adrien Le Masle
@@ -12,6 +11,7 @@ Aidan McNay
 Aleksander Kiryk
 Alex Chadwick
 Alex Solomatnikov
+Àlex Torregrosa
 Aliaksei Chapyzhenka
 Ameya Vikram Singh
 Andrea Calabrese
@@ -24,7 +24,6 @@ Anthony Donlon
 Anthony Moore
 Arkadiusz Kozdra
 Arthur Rosa
-Artur Bieniek
 Aylon Chaim Porat
 Bartłomiej Chmiel
 Brian Li
@@ -35,20 +34,17 @@ Chris Randall
 Christopher Taylor
 Chuxuan Wang
 Chykon
-Congcong Cai
 Conor McCullough
 Dan Petrisko
 Daniel Bates
-Danny Oler
-Dave Sargeant
 David Horton
 David Ledger
 David Metz
+Dave Sargeant
 David Stanford
 David Turner
 Dercury
 Diego Roux
-Dominick Grochowina
 Don Williamson
 Drew Ranck
 Drew Taussig
@@ -58,27 +54,27 @@ Eric Müller
 Eric Rippey
 Ethan Sifferman
 Eyck Jentzsch
+Furqan Nadir
 Fabian Keßler
 Fan Shupei
+february cozzocrea
 Felix Neumärker
 Felix Yan
 Frans Skarman
 Fuad Ismail
-Furqan Nadir
 G-A. Kamendje
 Garrett Smith
-George Polack
 Geza Lore
 Gianfranco Costamagna
 Gijs Burghoorn
 Gilberto Abram
 Glen Gibb
+Gökçe Aydos
 Graham Rushton
 Greg Davill
 Guokai Chen
 Gus Smith
 Gustav Svensk
-Gökçe Aydos
 Han Qi
 Harald Heckmann
 Hennadii Chernyshchyk
@@ -87,8 +83,7 @@ Huang Rui
 Huanghuang Zhou
 HungMingWu
 HyungKi Jeong
-Ibrahim Burak Yorulmaz
-Igor Zaworski
+Ícaro Lima
 Ilya Barkov
 Iru Cai
 Ivan Vnučec
@@ -102,17 +97,16 @@ James Shi
 Jamey Hicks
 Jamie Iles
 Jan Van Winkel
+Jiangjie Weng
 Jean Berniolles
 Jeremy Bennett
 Jesse Taube
 Jevin Sweval
 Jiacheng Qian
 Jiamin Zhu
-Jiangjie Weng
-Jinyan Xu
 Jitesh Nayak
+Jinyan Xu
 Jiuyang Liu
-Joel Bodenmann
 Joey Liu
 John Coiner
 John Demme
@@ -144,7 +138,6 @@ Krzysztof Obłonczek
 Krzysztof Starecki
 Krzysztof Sychla
 Kuba Ober
-Lan Zongwei
 Larry Doolittle
 Liam Braun
 Luca Colagrande
@@ -162,12 +155,10 @@ Martin Schmidt
 Martin Stadler
 Mateusz Gancarz
 Matthew Ballance
-Max Wipfli
-Michael Bedford Taylor
 Michael Bikovitsky
 Michael Killough
-Michal Czyz
 Michaël Lefebvre
+Michal Czyz
 Mike Popoloski
 Miodrag Milanović
 Mladen Slijepcevic
@@ -189,11 +180,9 @@ Paul Wright
 Pawel Jewstafjew
 Pawel Sagan
 Pengcheng Xu
-Peter Birch
 Peter Debacker
 Peter Horvath
 Peter Monsson
-Petr Nohavica
 Philip Axer
 Philipp Wagner
 Pierre-Henri Horrein
@@ -209,40 +198,37 @@ Richard Myers
 Risto Pejašinović
 Robert Balas
 Robin Heinemann
-Rodrigo Batista de Moraes
 Rupert Swarbrick
 Ryan Ziegler
 Ryszard Rozak
 Samuel Riedel
 Sean Cross
 Sebastien Van Cauwenberghe
-Sergey Fedorov
 Sergi Granell
 Seth Pellegrino
-Shou-Li Hsu
 Srinivasan Venkataramanan
 Stefan Wallentowitz
 Stephen Henry
 Steven Hugg
+sumpster
 Szymon Gizler
 Sören Tempel
 Teng Huang
+Tom Manner
 Tim Hutt
 Tim Snyder
-Tobias Jensen
 Tobias Rosenkranz
 Tobias Wölfel
 Todd Strader
-Tom Manner
 Tomasz Gorochowik
 Topa Topino
 Toru Niina
 Trung Nguyen
 Tudor Timi
 Tymoteusz Blazejczyk
-Udaya Raj Subedi
 Udi Finkelstein
 Unai Martinez-Corral
+Udaya Raj Subedi
 Valentin Atepalikhin
 Varun Koyyalagunta
 Vassilis Papaefstathiou
@@ -263,11 +249,9 @@ Yuri Victorovich
 Yutetsu TAKATSUKASA
 Yves Mathieu
 Zhanglei Wang
-Zhen Yan
 Zhou Shen
 Zhouyi Shen
 Zixi Li
-february cozzocrea
-sumpster
-Àlex Torregrosa
-Ícaro Lima
+أحمد المحمودي
+404allen404
+Tobias Jensen

@@ -109,7 +109,7 @@ public:
 // Interface class functions
 
 void V3Interface::interfaceAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
 
     { InlineIntfRefVisitor{nodep}; }
 

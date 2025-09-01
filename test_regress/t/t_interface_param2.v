@@ -31,7 +31,7 @@ interface simple_bus #(AWIDTH = 8, DWIDTH = 8)
                   output data);
 
    initial begin
-      if (DWIDTH != 8 && DWIDTH != 16) $stop;
+      if (DWIDTH != 16) $stop;
    end
 endinterface: simple_bus
 
@@ -40,6 +40,7 @@ module mem(interface a);
    always @(posedge a.clk)
      a.gnt <= a.req & avail;
    initial begin
+      if ($bits(a.data) != 16) $stop;
       $write("*-* All Finished *-*\n");
       $finish;
    end

@@ -14,9 +14,9 @@ package config_pkg;
       int USE_QUAD0;
       int USE_QUAD1;
       int USE_QUAD2;
-   } config_struct_t;
+   } config_struct;
 
-endpackage
+endpackage : config_pkg
 
 module t;
     import config_pkg::*;
@@ -28,11 +28,11 @@ module t;
                                        USE_QUAD1: 5,
                                        USE_QUAD2: 6
                                     })) a_submodule_I ();
-endmodule
+endmodule : t
 
 module struct_submodule
   import config_pkg::*;
-   #(parameter config_struct_t MY_CONFIG = '0);
+   #(parameter config_struct MY_CONFIG = '0);
 
    initial begin
       `checkd(MY_CONFIG.UPPER0, 10);
@@ -43,4 +43,4 @@ module struct_submodule
       $write("*-* All Finished *-*\n");
       $finish;
    end
-endmodule
+endmodule : struct_submodule

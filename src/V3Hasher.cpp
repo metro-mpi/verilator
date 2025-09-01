@@ -97,7 +97,7 @@ class HasherVisitor final : public VNVisitorConst {
 
     void visit(AstNode* nodep) override {
 #if VL_DEBUG
-        UINFO(0, "%Warning: Hashing node as AstNode: " << nodep);
+        UINFO(0, "%Warning: Hashing node as AstNode: " << nodep << endl);
 #endif
         m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, [=]() {});
     }
@@ -215,11 +215,6 @@ class HasherVisitor final : public VNVisitorConst {
     void visit(AstNodeExpr* nodep) override {
         m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, []() {});
     }
-    void visit(AstSel* nodep) override {
-        m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, [this, nodep]() {  //
-            m_hash += nodep->widthConst();
-        });
-    }
     void visit(AstConst* nodep) override {
         m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, [this, nodep]() {  //
             m_hash += nodep->num().toHash();
@@ -298,7 +293,7 @@ class HasherVisitor final : public VNVisitorConst {
     }
     void visit(AstCAwait* nodep) override {
         m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, [this, nodep]() {  //
-            iterateConstNull(nodep->sentreep());
+            iterateConstNull(nodep->sensesp());
         });
     }
     void visit(AstCLocalScope* nodep) override {
@@ -320,7 +315,9 @@ class HasherVisitor final : public VNVisitorConst {
         });
     }
     void visit(AstJumpGo* nodep) override {
-        m_hash += hashNodeAndIterate(nodep, false, false, []() {});
+        m_hash += hashNodeAndIterate(nodep, false, HASH_CHILDREN, [this, nodep]() {  //
+            iterateConstNull(nodep->labelp());
+        });
     }
     void visit(AstTraceInc* nodep) override {
         m_hash += hashNodeAndIterate(nodep, false, HASH_CHILDREN, [this, nodep]() {  //
@@ -480,7 +477,7 @@ class HasherVisitor final : public VNVisitorConst {
     }
     void visit(AstActive* nodep) override {
         m_hash += hashNodeAndIterate(nodep, HASH_DTYPE, HASH_CHILDREN, [this, nodep]() {  //
-            iterateConstNull(nodep->sentreep());
+            iterateConstNull(nodep->sensesp());
         });
     }
     void visit(AstCell* nodep) override {

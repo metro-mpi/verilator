@@ -9,7 +9,7 @@
 
 import vltest_bootstrap
 
-test.scenarios('simulator_st')
+test.scenarios('simulator')
 
 test.compile(verilator_flags2=["--stats"])
 

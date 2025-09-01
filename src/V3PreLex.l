@@ -57,7 +57,7 @@ void yyourtext(const char* textp, size_t size) {
 
 static void linenoInc() { LEXP->linenoInc(); }
 static bool pedantic() { return LEXP->m_pedantic; }
-static void yyerror(const char* msg) { LEXP->curFilelinep()->v3error(msg); }
+static void yyerror(char* msg) { LEXP->curFilelinep()->v3error(msg); }
 static void yyerrorf(const char* msg) { LEXP->curFilelinep()->v3error(msg); }
 static void appendDefValue(const char* t, size_t l) { LEXP->appendDefValue(t, l); }
 
@@ -188,7 +188,7 @@ bom             [\357\273\277]
                           if ((yyourleng()-1) <= size_t(LEXP->m_protLength) && ((yyleng & 3) == 1)) {
                               LEXP->m_protBytes -= (yyleng-1)/4*3;
                           } else {
-                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 line too long in `pragma protect key_block/data_block");
+                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 line too long in `pragma protect key_bloock/data_block");
                           }
                           if (yytext[yyleng-3] == '=')
                               LEXP->m_protBytes++;
@@ -197,11 +197,11 @@ bom             [\357\273\277]
                           if (LEXP->m_protBytes == 0) {
                               BEGIN(INITIAL);
                           } else if (LEXP->m_protBytes < 0)
-                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 encoding (too short) in `pragma protect key_block/data_block");
+                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 encoding (too short) in `pragma protect key_bloock/data_block");
                           /*return VP_TEXT;*/ }
 <ENCBASE64>{wsn}*[\n\r] { FL_FWDC;
                           if (LEXP->m_protBytes != 0)
-                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 encoding length mismatch in `pragma protect key_block/data_block");
+                              LEXP->curFilelinep()->v3warn(BADSTDPRAGMA, "BASE64 encoding length mismatch in `pragma protect key_bloock/data_block");
                           linenoInc(); BEGIN(INITIAL);
                           return VP_TEXT; }
 
@@ -237,7 +237,7 @@ bom             [\357\273\277]
                           return VP_TEXT; }
 <INITIAL,STRIFY>"`__FILE__"     { FL_FWDC;
                           static string rtnfile;
-                          rtnfile = '"'; rtnfile += LEXP->curFilelinep()->filenameEsc();
+                          rtnfile = '"'; rtnfile += LEXP->curFilelinep()->filename();
                           rtnfile += '"'; yytext = (char*)rtnfile.c_str(); yyleng = rtnfile.length();
                           return VP_STRING; }
 <INITIAL,STRIFY>"`__LINE__"     { FL_FWDC;
@@ -548,7 +548,7 @@ again:
         if (len > (max_size - got)) {  // Front string too big
             len = (max_size - got);
             string remainder = front.substr(len);
-            front.resize(len);
+            front = front.substr(0, len);
             streamp->m_buffers.push_front(remainder);  // Put back remainder for next time
         }
         strncpy(buf + got, front.c_str(), len);
@@ -740,8 +740,8 @@ void V3PreLex::dumpStack() {  // LCOV_EXCL_START
     std::stack<VPreStream*> tmpstack = LEXP->m_streampStack;
     while (!tmpstack.empty()) {
         const VPreStream* const streamp = tmpstack.top();
-        cout << "-    bufferStack[" << cvtToHex(streamp)
-             << "]: " << " at=" << streamp->m_curFilelinep << " nBuf=" << streamp->m_buffers.size()
+        cout << "-    bufferStack[" << cvtToHex(streamp) << "]: "
+             << " at=" << streamp->m_curFilelinep << " nBuf=" << streamp->m_buffers.size()
              << " size0=" << (streamp->m_buffers.empty() ? 0 : streamp->m_buffers.front().length())
              << (streamp->m_eof ? " [EOF]" : "") << (streamp->m_file ? " [FILE]" : "") << endl;
         tmpstack.pop();

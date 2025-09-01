@@ -21,7 +21,6 @@ module t (/*AUTOARG*/
    initial begin
       for (int i = 0; i < 8; i++) begin
           arr[i] = 0;
-          arri[i] = 0;
       end
    end
 
@@ -30,12 +29,10 @@ module t (/*AUTOARG*/
       if (cyc == 5 && arri[1] != 8) begin
          $stop;
       end
-      if (cyc >= 2) begin
-         for (int i = 0; i < 7; ++i) begin
-             arr[i+1] <= arr[i];
-         end
-         arr[0] <= arr[0] + 1;
+      for (int i = 0; i < 7; ++i) begin
+          arr[i+1] <= arr[i];
       end
+      arr[0] <= arr[0] + 1;
    end
 
 endmodule : t
@@ -50,8 +47,7 @@ module has_array (
 
    always @(posedge clk) begin
       cyc <= cyc + 1;
-      if (cyc == 10) begin
-         if (arri[0] != 8) $stop;
+      if (arri[0] == 10 && cyc == 10) begin
          $write("*-* All Finished *-*\n");
          $finish;
       end

@@ -178,7 +178,7 @@ void VerilatedVcd::openNextImp(bool incFilename) {
         }
     }
     m_isOpen = true;
-    constDump(true);  // First dump must contain the const signals
+    constDump(true);  // First dump must containt the const signals
     fullDump(true);  // First dump must be full
     m_wroteBytes = 0;
 }
@@ -193,7 +193,7 @@ void VerilatedVcd::emitTimeChange(uint64_t timeui) {
     // timestamp backup and overwrite it.
     // This is faster then checking on every signal change if time needs to
     // be emitted.  Note buffer flushes may still emit a rare duplicate.
-    if (m_wrTimeBeginp && m_wrTimeEndp == m_writep) m_writep = m_wrTimeBeginp;
+    if (m_wrTimeEndp == m_writep) m_writep = m_wrTimeBeginp;
     m_wrTimeBeginp = m_writep;
     {
         printStr("#");
@@ -323,46 +323,43 @@ void VerilatedVcd::printIndent(int level_change) {
 
 void VerilatedVcd::pushPrefix(const std::string& name, VerilatedTracePrefixType type) {
     assert(!m_prefixStack.empty());  // Constructor makes an empty entry
-    // An empty name means this is the root of a model created with
-    // name()=="".  The tools get upset if we try to pass this as empty, so
-    // we put the signals under a new $rootio scope, but the signals
-    // further down will be peers, not children (as usual for name()!="").
-    const std::string prevPrefix = m_prefixStack.back().first;
-    if (name == "$rootio" && !prevPrefix.empty()) {
-        // Upper has name, we can suppress inserting $rootio, but still push so popPrefix works
-        m_prefixStack.emplace_back(prevPrefix, VerilatedTracePrefixType::ROOTIO_WRAPPER);
-        return;
-    } else if (name.empty()) {
-        m_prefixStack.emplace_back(prevPrefix, VerilatedTracePrefixType::ROOTIO_WRAPPER);
-        return;
+    std::string pname = name;
+    // An empty name means this is the root of a model created with name()=="".  The
+    // tools get upset if we try to pass this as empty, so we put the signals under a
+    // new scope, but the signals further down will be peers, not children (as usual
+    // for name()!="")
+    // Terminate earlier $root?
+    if (m_prefixStack.back().second == VerilatedTracePrefixType::ROOTIO_MODULE) popPrefix();
+    if (pname.empty()) {  // Start new temporary root
+        pname = "$rootio";  // VCD names are not backslash escaped
+        m_prefixStack.emplace_back("", VerilatedTracePrefixType::ROOTIO_WRAPPER);
+        type = VerilatedTracePrefixType::ROOTIO_MODULE;
     }
-
-    const std::string newPrefix = prevPrefix + name;
-    bool properScope = false;
+    std::string newPrefix = m_prefixStack.back().first + pname;
     switch (type) {
+    case VerilatedTracePrefixType::ROOTIO_MODULE:
     case VerilatedTracePrefixType::SCOPE_MODULE:
     case VerilatedTracePrefixType::SCOPE_INTERFACE:
     case VerilatedTracePrefixType::STRUCT_PACKED:
     case VerilatedTracePrefixType::STRUCT_UNPACKED:
     case VerilatedTracePrefixType::UNION_PACKED: {
-        properScope = true;
-        break;
-    }
-    default: break;
-    }
-    if (properScope) {
         printIndent(1);
         printStr("$scope module ");
         const std::string n = lastWord(newPrefix);
         printStr(n.c_str());
         printStr(" $end\n");
+        newPrefix += ' ';
+        break;
     }
-    m_prefixStack.emplace_back(newPrefix + (properScope ? " " : ""), type);
+    default: break;
+    }
+    m_prefixStack.emplace_back(newPrefix, type);
 }
 
 void VerilatedVcd::popPrefix() {
     assert(!m_prefixStack.empty());
     switch (m_prefixStack.back().second) {
+    case VerilatedTracePrefixType::ROOTIO_MODULE:
     case VerilatedTracePrefixType::SCOPE_MODULE:
     case VerilatedTracePrefixType::SCOPE_INTERFACE:
     case VerilatedTracePrefixType::STRUCT_PACKED:
@@ -490,7 +487,6 @@ VerilatedVcd::Buffer* VerilatedVcd::getTraceBuffer(uint32_t fidx) {
         // Note: This is called from VerilatedVcd::dump, which already holds the lock
         // If no buffer available, allocate a new one
         if (m_freeBuffers.empty()) {
-            // cppcheck-suppress unreadVariable  // cppcheck bug, used below
             constexpr size_t pageSize = 4096;
             // 4 * m_maxSignalBytes, so we can reserve 2 * m_maxSignalBytes at the end for safety
             size_t startingSize = roundUpToMultipleOf<pageSize>(4 * m_maxSignalBytes);

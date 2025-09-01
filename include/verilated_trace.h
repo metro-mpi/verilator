@@ -53,7 +53,8 @@ enum class VerilatedTracePrefixType : uint8_t {
     // Note: Entries must match VTracePrefixType (by name, not necessarily by value)
     ARRAY_PACKED,
     ARRAY_UNPACKED,
-    ROOTIO_WRAPPER,  // $rootio suppressed due to name()!=""
+    ROOTIO_MODULE,  // $rootio, used when name()=="", other modules become peers
+    ROOTIO_WRAPPER,  // "Above" ROOTIO_MODULE
     SCOPE_MODULE,
     SCOPE_INTERFACE,
     STRUCT_PACKED,

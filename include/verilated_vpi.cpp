@@ -114,7 +114,6 @@ public:
 #endif
     }
     // MEMBERS
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpio* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpio*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -145,7 +144,6 @@ public:
         , m_time{time}
         , m_reason{reason} {}
     ~VerilatedVpioReasonCb() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioReasonCb* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioReasonCb*>(reinterpret_cast<VerilatedVpioReasonCb*>(h));
     }
@@ -160,7 +158,6 @@ public:
     explicit VerilatedVpioConst(int32_t num)
         : m_num{num} {}
     ~VerilatedVpioConst() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioConst* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioConst*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -190,7 +187,6 @@ public:
             m_indexedDim = varp->m_indexedDim;
         }
     }
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioVarBase* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioVarBase*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -209,7 +205,7 @@ public:
     uint32_t size() const override {
         const int maxDimNum = maxDim(isIndexedDimUnpacked());
         int size = 1;
-        for (int dim = indexedDim() + 1; dim <= maxDimNum; ++dim)
+        for (int dim = indexedDim() + 1; dim <= maxDimNum; dim++)
             size *= varp()->range(dim)->elements();
         return size;
     }
@@ -262,7 +258,6 @@ public:
         : VerilatedVpioVarBase{varp, scopep} {}
     ~VerilatedVpioParam() override = default;
 
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioParam* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioParam*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -288,7 +283,6 @@ public:
     explicit VerilatedVpioRange(const VerilatedRange* rangep)
         : m_rangep{rangep} {}
     ~VerilatedVpioRange() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioRange* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioRange*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -307,7 +301,6 @@ public:
         m_iter = m_ranges.begin();
     }
     ~VerilatedVpioRangeIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioRangeIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioRangeIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -317,7 +310,7 @@ public:
             delete this;  // IEEE 37.2.2 vpi_scan at end does a vpi_release_handle
             return nullptr;
         }
-        VerilatedRange* const rangep = new VerilatedRange{*m_iter};
+        VerilatedRange* const rangep = new VerilatedRange(*m_iter);
         ++m_iter;
         return ((new VerilatedVpioRange{rangep})->castVpiHandle());
     }
@@ -340,7 +333,6 @@ public:
         m_defname = m_scopep->defname();
     }
     ~VerilatedVpioScope() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioScope* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioScope*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -387,7 +379,6 @@ public:
     ~VerilatedVpioVar() override {
         if (m_prevDatap) VL_DO_CLEAR(delete[] m_prevDatap, m_prevDatap = nullptr);
     }
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioVar* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioVar*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -438,7 +429,7 @@ public:
     void createPrevDatap() {
         if (VL_UNLIKELY(!m_prevDatap)) {
             m_prevDatap = new uint8_t[entSize()];
-            std::memcpy(prevDatap(), m_varDatap, entSize());
+            std::memcpy(prevDatap(), varp()->datap(), entSize());
         }
     }
 };
@@ -459,7 +450,6 @@ public:
             m_topscopep = Verilated::threadContextp()->scopeFind("TOP");
     }
     ~VerilatedVpioVarIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioVarIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioVarIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -513,12 +503,11 @@ public:
     explicit VerilatedVpioRegIter(const VerilatedVpioVar* vop)
         : m_var{new VerilatedVpioVar(vop)}
         , m_maxDim{vop->varp()->udims() - 1} {
-        for (auto it = vop->indexedDim() + 1; it <= m_maxDim; ++it)
+        for (auto it = vop->indexedDim() + 1; it <= m_maxDim; it++)
             m_ranges.push_back(*vop->varp()->range(it));
         for (auto it : m_ranges) m_nextIndex.push_back(it.right());
     }
     ~VerilatedVpioRegIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioRegIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioRegIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -573,7 +562,6 @@ public:
         }
         if (VL_UNLIKELY(pos == std::string::npos)) m_toplevel = true;
     }
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioModule* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioModule*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -590,7 +578,6 @@ public:
         m_it = m_vec->begin();
     }
     ~VerilatedVpioModuleIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioModuleIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioModuleIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -620,7 +607,6 @@ public:
         m_it = m_vec->begin();
     }
     ~VerilatedVpioScopeIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioScopeIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioScopeIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -654,7 +640,6 @@ public:
 
         if (strcmp(m_name, "\\$unit ") == 0) m_name = d_unit;
     }
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioPackage* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioPackage*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -672,7 +657,6 @@ public:
         m_it = m_vec->begin();
     }
     ~VerilatedVpioInstanceIter() override = default;
-    // cppcheck-suppress duplInheritedMember
     static VerilatedVpioInstanceIter* castp(vpiHandle h) {
         return dynamic_cast<VerilatedVpioInstanceIter*>(reinterpret_cast<VerilatedVpio*>(h));
     }
@@ -1057,7 +1041,7 @@ public:
             }
             if (was_last) break;
         }
-        for (const VerilatedVpioVar* const ip : update) {
+        for (const auto& ip : update) {
             std::memcpy(ip->prevDatap(), ip->varDatap(), ip->entSize());
         }
         return called;
@@ -2075,10 +2059,7 @@ vpiHandle vpi_handle_by_name(PLI_BYTE8* namep, vpiHandle scope) {
     const VerilatedScope* scopep;
     const VerilatedVpioScope* const voScopep = VerilatedVpioScope::castp(scope);
     std::string scopeAndName = namep;
-    if (0 == std::strncmp(namep, "$root.", std::strlen("$root."))) {
-        namep += std::strlen("$root.");
-        scopeAndName = namep;
-    } else if (voScopep) {
+    if (voScopep) {
         const bool scopeIsPackage = VerilatedVpioPackage::castp(scope) != nullptr;
         scopeAndName = std::string{voScopep->fullname()} + (scopeIsPackage ? "" : ".") + namep;
         namep = const_cast<PLI_BYTE8*>(scopeAndName.c_str());
@@ -2238,7 +2219,7 @@ vpiHandle vpi_iterate(PLI_INT32 type, vpiHandle object) {
 
         std::vector<VerilatedRange> ranges;
         const int maxDim = vop->maxDim(vop->isIndexedDimUnpacked());
-        for (int dim = vop->indexedDim() + 1; dim <= maxDim; ++dim)
+        for (int dim = vop->indexedDim() + 1; dim <= maxDim; dim++)
             ranges.emplace_back(*vop->varp()->range(dim));
 
         // allow one more range layer (regbit)
@@ -2556,7 +2537,6 @@ void vl_vpi_put_word_gen(const VerilatedVpioVar* vop, T word, size_t bitCount, s
             = (info.m_datap[info.m_wordOffset + 1] & ~info.m_maskHi)
               | ((word >> (wordBits - info.m_bitOffset)) & info.m_maskHi);
     }
-    // cppcheck-suppress unreadVariable
     info.m_datap[info.m_wordOffset] = (info.m_datap[info.m_wordOffset] & ~info.m_maskLo)
                                       | ((word << info.m_bitOffset) & info.m_maskLo);
 }
@@ -2965,7 +2945,7 @@ void vl_get_value_array_integrals(unsigned index, const unsigned num, const unsi
                                   const unsigned packedSize, const bool leftIsLow, const T* src,
                                   K* dst) {
     static_assert(sizeof(K) >= sizeof(T), "size of type K is less than size of type T");
-    for (int i = 0; i < num; ++i) {
+    for (int i = 0; i < num; i++) {
         dst[i] = src[index];
         index = leftIsLow    ? index == (size - 1) ? 0 : index + 1
                 : index == 0 ? size - 1
@@ -2984,7 +2964,7 @@ void vl_put_value_array_integrals(unsigned index, const unsigned num, const unsi
     const T mask = element_size_bytes == sizeof(T)
                        ? static_cast<T>(-1)
                        : ~(static_cast<T>(-1) << (element_size_bytes * 8));
-    for (unsigned i = 0; i < num; ++i) {
+    for (unsigned i = 0; i < num; i++) {
         dst[index] = src[i] & static_cast<T>(mask);
         index = leftIsLow    ? index == (size - 1) ? 0 : index + 1
                 : index == 0 ? size - 1
@@ -2998,9 +2978,10 @@ void vl_get_value_array_vectors(unsigned index, const unsigned num, const unsign
                                 p_vpi_vecval dst) {
     static_assert(std::is_unsigned<T>::value,
                   "type T is not unsigned");  // ensure logical right shift
+    const unsigned element_size_bytes = VL_BYTES_I(packedSize);
     const unsigned element_size_words = VL_WORDS_I(packedSize);
     if (sizeof(T) == sizeof(QData)) {
-        for (unsigned i = 0; i < num; ++i) {
+        for (unsigned i = 0; i < num; i++) {
             dst[i * 2].aval = static_cast<QData>(src[index]);
             dst[i * 2].bval = 0;
             dst[(i * 2) + 1].aval = static_cast<QData>(src[index]) >> 32;
@@ -3010,10 +2991,10 @@ void vl_get_value_array_vectors(unsigned index, const unsigned num, const unsign
                                  : index - 1;
         }
     } else {
-        for (unsigned i = 0; i < num; ++i) {
+        for (unsigned i = 0; i < num; i++) {
             const size_t dst_index = i * element_size_words;
             const size_t src_index = index * element_size_words;
-            for (unsigned j = 0; j < element_size_words; ++j) {
+            for (unsigned j = 0; j < element_size_words; j++) {
                 dst[dst_index + j].aval = src[src_index + j];
                 dst[dst_index + j].bval = 0;
             }
@@ -3036,7 +3017,7 @@ void vl_put_value_array_vectors(unsigned index, const unsigned num, const unsign
         const QData mask = element_size_bytes == sizeof(T)
                                ? static_cast<QData>(-1)
                                : ~(static_cast<QData>(-1) << (element_size_bytes * 8));
-        for (unsigned i = 0; i < num; ++i) {
+        for (unsigned i = 0; i < num; i++) {
             dst[index] = src[i * 2].aval;
             dst[index]
                 |= (static_cast<QData>(src[(i * 2) + 1].aval) << (sizeof(PLI_UINT32) * 8)) & mask;
@@ -3045,9 +3026,9 @@ void vl_put_value_array_vectors(unsigned index, const unsigned num, const unsign
                                  : index - 1;
         }
     } else {
-        for (unsigned i = 0; i < num; ++i) {
+        for (unsigned i = 0; i < num; i++) {
             unsigned bytes_stored = 0;
-            for (unsigned j = 0; j < element_size_words; ++j) {
+            for (unsigned j = 0; j < element_size_words; j++) {
                 if (bytes_stored >= element_size_bytes) break;
                 const T mask
                     = (element_size_bytes - bytes_stored) >= sizeof(PLI_UINT32)
@@ -3069,16 +3050,16 @@ void vl_get_value_array_rawvals(unsigned index, unsigned num, const unsigned siz
                                 const unsigned packedSize, const bool leftIsLow,
                                 const bool fourState, const T* src, PLI_BYTE8* dst) {
     static_assert(std::is_unsigned<T>::value,
-                  "type T is not unsigned");  //ensure logical right shift
+                  "type T is not unsigned");  //ensure loigcal right shift
     const unsigned element_size_bytes VL_BYTES_I(packedSize);
     const unsigned element_size_repr = (element_size_bytes + sizeof(T) - 1) / sizeof(T);
     size_t dst_index = 0;
     while (num-- > 0) {
         const size_t src_offset = index * element_size_repr;
         unsigned bytes_copied = 0;
-        for (unsigned j = 0; j < element_size_repr; ++j) {
+        for (unsigned j = 0; j < element_size_repr; j++) {
             const T& src_data = src[src_offset + j];
-            for (unsigned k = 0; k < sizeof(T); ++k) {
+            for (unsigned k = 0; k < sizeof(T); k++) {
                 if (bytes_copied++ == element_size_bytes) break;
                 dst[dst_index++] = src_data >> (k * 8);
             }
@@ -3099,13 +3080,13 @@ void vl_put_value_array_rawvals(unsigned index, const unsigned num, const unsign
                                 const bool fourState, const PLI_UBYTE8* src, T* dst) {
     const unsigned element_size_bytes VL_BYTES_I(packedSize);
     const unsigned element_size_repr = (element_size_bytes + sizeof(T) - 1) / sizeof(T);
-    for (unsigned i = 0; i < num; ++i) {
+    for (unsigned i = 0; i < num; i++) {
         unsigned bytes_copied = 0;
         const size_t dst_offset = index * element_size_repr;
         const size_t src_offset = i * element_size_bytes;
-        for (unsigned j = 0; j < element_size_repr; ++j) {
+        for (unsigned j = 0; j < element_size_repr; j++) {
             T& dst_data = dst[dst_offset + j];
-            for (unsigned k = 0; k < sizeof(T); ++k) {
+            for (unsigned k = 0; k < sizeof(T); k++) {
                 if (bytes_copied == element_size_bytes) break;
                 const unsigned src_index
                     = fourState ? (src_offset * 2) + bytes_copied : (src_offset) + bytes_copied;
@@ -3147,7 +3128,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        PLI_INT16* shortintsp = reinterpret_cast<PLI_INT16*>(out_data);
+        PLI_INT16* shortintsp = (PLI_INT16*)out_data;
         arrayvalue_p->value.shortints = shortintsp;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3166,7 +3147,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        PLI_INT32* integersp = reinterpret_cast<PLI_INT32*>(out_data);
+        PLI_INT32* integersp = (PLI_INT32*)out_data;
         arrayvalue_p->value.integers = integersp;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3188,7 +3169,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        PLI_INT64* longintsp = reinterpret_cast<PLI_INT64*>(out_data);
+        PLI_INT64* longintsp = (PLI_INT64*)out_data;
         arrayvalue_p->value.longints = longintsp;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3213,7 +3194,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        p_vpi_vecval vectorsp = reinterpret_cast<p_vpi_vecval>(out_data);
+        p_vpi_vecval vectorsp = (p_vpi_vecval)out_data;
         arrayvalue_p->value.vectors = vectorsp;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3241,7 +3222,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        PLI_BYTE8* valuep = reinterpret_cast<PLI_BYTE8*>(out_data);
+        PLI_BYTE8* valuep = (PLI_BYTE8*)out_data;
         arrayvalue_p->value.rawvals = valuep;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3269,7 +3250,7 @@ void vl_get_value_array(vpiHandle object, p_vpi_arrayvalue arrayvalue_p, const P
                         "increase and recompile");
         }
 
-        PLI_BYTE8* valuep = reinterpret_cast<PLI_BYTE8*>(out_data);
+        PLI_BYTE8* valuep = (PLI_BYTE8*)out_data;
         arrayvalue_p->value.rawvals = valuep;
 
         if (varp->vltype() == VLVT_UINT8) {
@@ -3605,14 +3586,12 @@ PLI_INT32 vpi_printf(PLI_BYTE8* formatp, ...) {
     return chars;
 }
 
-// cppcheck-suppress constParameterPointer
 PLI_INT32 vpi_vprintf(PLI_BYTE8* formatp, va_list ap) {
     VerilatedVpiImp::assertOneCheck();
     VL_VPI_ERROR_RESET_();
     return VL_VPRINTF(formatp, ap);
 }
 
-// cppcheck-suppress constParameterPointer
 PLI_INT32 vpi_mcd_vprintf(PLI_UINT32 mcd, PLI_BYTE8* format, va_list ap) {
     VerilatedVpiImp::assertOneCheck();
     FILE* const fp = VL_CVT_I_FP(mcd);
@@ -3649,10 +3628,10 @@ PLI_INT32 vpi_chk_error(p_vpi_error_info error_info_p) {
     // executing vpi_chk_error does not reset error
     // error_info_p can be nullptr, so only return level in that case
     VerilatedVpiImp::assertOneCheck();
-    const p_vpi_error_info imp_info_p = VerilatedVpiImp::error_info()->getError();
-    if (error_info_p && imp_info_p) *error_info_p = *imp_info_p;
-    if (!imp_info_p) return 0;  // no error occurred
-    return imp_info_p->level;  // return error severity level
+    p_vpi_error_info const _error_info_p = VerilatedVpiImp::error_info()->getError();
+    if (error_info_p && _error_info_p) *error_info_p = *_error_info_p;
+    if (!_error_info_p) return 0;  // no error occurred
+    return _error_info_p->level;  // return error severity level
 }
 
 #ifndef VL_NO_LEGACY

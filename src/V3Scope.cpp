@@ -68,18 +68,9 @@ class ScopeVisitor final : public VNVisitor {
                 UASSERT_OBJ(it2 != m_packageScopes.end(), nodep, "Can't locate package scope");
                 scopep = it2->second;
             }
-            // Search up the scope hierarchy for the variable
-            AstVarScope* varscp = nullptr;
-            AstScope* searchScopep = scopep;
-            while (searchScopep) {
-                const auto it3 = m_varScopes.find(std::make_pair(nodep->varp(), searchScopep));
-                if (it3 != m_varScopes.end()) {
-                    varscp = it3->second;
-                    break;
-                }
-                searchScopep = searchScopep->aboveScopep();
-            }
-            UASSERT_OBJ(varscp, nodep, "Can't locate varref scope");
+            const auto it3 = m_varScopes.find(std::make_pair(nodep->varp(), scopep));
+            UASSERT_OBJ(it3 != m_varScopes.end(), nodep, "Can't locate varref scope");
+            AstVarScope* const varscp = it3->second;
             nodep->varScopep(varscp);
         }
     }
@@ -106,7 +97,7 @@ class ScopeVisitor final : public VNVisitor {
             scopename = m_aboveScopep->name() + "." + m_aboveCellp->name();
         }
 
-        UINFO(4, " MOD AT " << scopename << "  " << nodep);
+        UINFO(4, " MOD AT " << scopename << "  " << nodep << endl);
         AstNode::user1ClearTree();
 
         m_scopep = new AstScope{
@@ -137,7 +128,7 @@ class ScopeVisitor final : public VNVisitor {
         }
 
         // Create scope for the current usage of this module
-        UINFO(4, " back AT " << scopename << "  " << nodep);
+        UINFO(4, " back AT " << scopename << "  " << nodep << endl);
         AstNode::user1ClearTree();
         m_modp = nodep;
         if (m_modp->isTop()) {
@@ -168,7 +159,7 @@ class ScopeVisitor final : public VNVisitor {
             scopename = m_aboveScopep->name() + "." + nodep->name();
         }
 
-        UINFO(4, " CLASS AT " << scopename << "  " << nodep);
+        UINFO(4, " CLASS AT " << scopename << "  " << nodep << endl);
         AstNode::user1ClearTree();
 
         const AstNode* const abovep
@@ -193,7 +184,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstNodeProcedure* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -201,7 +192,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstAssignAlias* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -209,7 +200,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstAssignVarScope* nodep) override {
         // Copy under the scope but don't recurse
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -217,7 +208,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstAssignW* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -225,7 +216,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstAlwaysPublic* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -233,7 +224,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstCoverToggle* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    Move " << nodep);
+        UINFO(4, "    Move " << nodep << endl);
         AstNode* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -241,7 +232,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstCFunc* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    CFUNC " << nodep);
+        UINFO(4, "    CFUNC " << nodep << endl);
         AstCFunc* const clonep = nodep->cloneTree(false);
         nodep->user2p(clonep);
         m_scopep->addBlocksp(clonep);
@@ -251,7 +242,7 @@ class ScopeVisitor final : public VNVisitor {
     }
     void visit(AstNodeFTask* nodep) override {
         // Add to list of blocks under this scope
-        UINFO(4, "    FTASK " << nodep);
+        UINFO(4, "    FTASK " << nodep << endl);
         AstNodeFTask* clonep;
         if (nodep->classMethod()) {
             // Only one scope will be created, so avoid pointless cloning
@@ -269,12 +260,12 @@ class ScopeVisitor final : public VNVisitor {
         // Make new scope variable
         if (!nodep->user1p()) {
             AstScope* scopep = m_scopep;
-            if (const AstIfaceRefDType* const ifrefp = VN_CAST(nodep->dtypep(), IfaceRefDType)) {
+            if (AstIfaceRefDType* const ifacerefp = VN_CAST(nodep->dtypep(), IfaceRefDType)) {
                 // Attach every non-virtual interface variable its inner scope
-                if (ifrefp->cellp()) scopep = VN_AS(ifrefp->cellp()->user2p(), Scope);
+                if (ifacerefp->cellp()) scopep = VN_AS(ifacerefp->cellp()->user2p(), Scope);
             }
             AstVarScope* const varscp = new AstVarScope{nodep->fileline(), scopep, nodep};
-            UINFO(6, "   New scope " << varscp);
+            UINFO(6, "   New scope " << varscp << endl);
             if (m_aboveCellp && !m_aboveCellp->isTrace()) varscp->trace(false);
             nodep->user1p(varscp);
             if (v3Global.opt.isClocker(varscp->prettyName())) {
@@ -372,18 +363,18 @@ class ScopeCleanupVisitor final : public VNVisitor {
     }
     void visit(AstNodeFTaskRef* nodep) override {
         // The crossrefs are dealt with in V3LinkDot
-        UINFO(9, "   Old pkg-taskref " << nodep);
+        UINFO(9, "   Old pkg-taskref " << nodep << endl);
         if (nodep->classOrPackagep()) {
             // Point to the clone
             UASSERT_OBJ(nodep->taskp(), nodep, "Unlinked");
             AstNodeFTask* const newp = VN_AS(nodep->taskp()->user2p(), NodeFTask);
             UASSERT_OBJ(newp, nodep, "No clone for package function");
             nodep->taskp(newp);
-            UINFO(9, "   New pkg-taskref " << nodep);
+            UINFO(9, "   New pkg-taskref " << nodep << endl);
         } else if (!VN_IS(nodep, MethodCall)) {
             nodep->taskp(nullptr);
             VIsCached::clearCacheTree();
-            UINFO(9, "   New pkg-taskref " << nodep);
+            UINFO(9, "   New pkg-taskref " << nodep << endl);
         }
         iterateChildren(nodep);
     }
@@ -407,7 +398,7 @@ public:
 // Scope class functions
 
 void V3Scope::scopeAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     {
         const ScopeVisitor visitor{nodep};
         ScopeCleanupVisitor{nodep};

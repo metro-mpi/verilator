@@ -22,6 +22,10 @@ class my_cls;
       static int cnt = 0;
       return ++cnt;
    endfunction
+   static function static int get_cnt2;
+      int cnt = 0;
+      return ++cnt;
+   endfunction
 endclass
 
 module t (/*AUTOARG*/
@@ -99,6 +103,8 @@ module t (/*AUTOARG*/
       //
       v = my_cls::get_cnt1(); `checkh(v,   1);
       v = my_cls::get_cnt1(); `checkh(v,   2);
+      v = my_cls::get_cnt2(); `checkh(v,   1);
+      v = my_cls::get_cnt2(); `checkh(v,   2);
       //
    end
 

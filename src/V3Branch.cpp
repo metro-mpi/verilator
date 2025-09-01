@@ -51,16 +51,16 @@ class BranchVisitor final : public VNVisitorConst {
         m_likely = false;
         m_unlikely = false;
     }
-    void checkUnlikely(const AstNode* nodep) {
+    void checkUnlikely(AstNode* nodep) {
         if (nodep->isUnlikely()) {
-            UINFO(4, "  UNLIKELY: " << nodep);
+            UINFO(4, "  UNLIKELY: " << nodep << endl);
             m_unlikely++;
         }
     }
 
     // VISITORS
     void visit(AstNodeIf* nodep) override {
-        UINFO(4, " IF: " << nodep);
+        UINFO(4, " IF: " << nodep << endl);
         VL_RESTORER(m_likely);
         VL_RESTORER(m_unlikely);
         {
@@ -119,6 +119,6 @@ public:
 // Branch class functions
 
 void V3Branch::branchAll(AstNetlist* nodep) {
-    UINFO(2, __FUNCTION__ << ":");
+    UINFO(2, __FUNCTION__ << ": " << endl);
     { BranchVisitor{nodep}; }
 }

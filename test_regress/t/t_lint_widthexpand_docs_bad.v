@@ -5,15 +5,15 @@
 // SPDX-License-Identifier: CC0-1.0
 
 module t;
-  logic [31:0] array[5];
-  bit [1:0] rd_addr;
-  wire [31:0] rd_value = array[rd_addr];  //<--- Warning
+   int array[5];
+   bit [1:0] rd_addr;
+   wire int rd_value = array[rd_addr];  //<--- Warning
 
-  ok ok ();
+   ok ok();
 endmodule
 
 module ok;
-  logic [31:0] array[5];
-  bit [1:0] rd_addr;
-  wire [31:0] rd_value = array[{1'b0, rd_addr}];  //<--- Fixed
-endmodule
+   int array[5];
+   bit [1:0] rd_addr;
+   wire int rd_value = array[{1'b0, rd_addr}];  //<--- Fixed
+endmodule;

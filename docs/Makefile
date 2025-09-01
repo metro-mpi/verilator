@@ -25,7 +25,7 @@ BUILDDIR = _build
 
 SPHINXOPTS ?= -c guide -j 4
 ifneq ($(VERILATOR_ANALYTICS_ID),)
-  SPHINXOPTS += -D html_theme_options.analytics_id=$(VERILATOR_ANALYTICS_ID)
+SPHINXOPTS += -D html_theme_options.analytics_id=$(VERILATOR_ANALYTICS_ID)
 endif
 
 ######################################################################
@@ -68,15 +68,10 @@ pdf:
 
 ######################################################################
 
-html latex linkcheck::
+html latex linkcheck spelling::
 	$(MAKE) vl-extract
 	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
 	$(PYTHON3) bin/vl_sphinx_fix _build
-
-spelling::
-	$(MAKE) vl-extract
-	$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
-	sort -o guide/spelling.txt guide/spelling.txt
 
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)

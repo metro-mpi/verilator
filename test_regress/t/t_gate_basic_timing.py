@@ -13,8 +13,7 @@ test.scenarios('simulator')
 test.top_filename = "t/t_gate_basic.v"
 test.main_time_multiplier = 10e-7 / 10e-9
 
-test.compile(timing_loop=True,
-             verilator_flags2=["--timing --timescale 10ns/1ns -Wno-RISEFALLDLY -Wno-SPECIFYIGN"])
+test.compile(timing_loop=True, verilator_flags2=["--timing --timescale 10ns/1ns -Wno-RISEFALLDLY"])
 
 test.execute()
 

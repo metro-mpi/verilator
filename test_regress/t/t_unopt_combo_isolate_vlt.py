@@ -14,9 +14,8 @@ test.top_filename = "t/t_unopt_combo.v"
 
 out_filename = test.obj_dir + "/V" + test.name + ".tree.json"
 
-test.compile(verilator_flags2=[
-    "--no-json-edit-nums", "--stats", test.t_dir + "/t_unopt_combo_isolate.vlt", "-fno-dfg"
-])
+test.compile(
+    verilator_flags2=["--no-json-edit-nums --stats", test.t_dir + "/t_unopt_combo_isolate.vlt"])
 
 if test.vlt_all:
     test.file_grep(test.stats, r'Optimizations, isolate_assignments blocks\s+3')
